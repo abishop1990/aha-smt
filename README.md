@@ -1,6 +1,10 @@
-# Aha SMT — Scrum Master Tool
+# Aha SMT — Scrum Master Tools
 
-A fast, focused Next.js app for day-to-day scrum master workflows powered by the [Aha REST API](https://www.aha.io/api). Built as a lightweight alternative to Aha's UI for the tasks scrum masters actually do every day.
+## The Problem
+
+Aha.io is a powerful product management platform, but its UI is slow and bloated for the workflows a scrum master runs through every day. Loading a single backlog view can take seconds. Estimating features means clicking through multiple screens. There's no quick way to see who's over-committed in a sprint, track standup blockers over time, or compare velocity across sprints without exporting to a spreadsheet.
+
+Scrum masters need a small, fast set of tools — not the full product management suite. Aha SMT pulls data from Aha via its REST API and presents focused views for the things that matter during a sprint: what needs estimating, who has capacity, what's blocking people, and how the team is trending.
 
 ## Features
 
