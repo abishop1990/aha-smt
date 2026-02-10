@@ -76,6 +76,45 @@ Tables are auto-created on first run — no migration step needed.
 
 The Aha REST API has no dedicated sprint/iteration endpoints. This tool models sprints as Aha Releases with start and end dates.
 
+## Aha! API Latency & Limitations
+
+The Aha! REST API is the primary bottleneck for responsiveness. We measured production latency against a real Aha! environment and applied every mitigation available, but some constraints are outside our control.
+
+### What we measured
+
+| Endpoint | Avg Latency | p95 | Notes |
+|---|---|---|---|
+| `/me` (auth check) | ~400ms | ~490ms | Cold-start spikes to 700ms+ |
+| `/products` | ~210ms | | Small payload |
+| `/releases` (per product) | ~480ms | ~930ms | Varies with release count |
+| `/features` (200 items, lean fields) | ~1.4s | ~1.6s | Full fields: ~2.1s (31% slower) |
+| `/features` (full pagination, 3400 items) | ~40s | ~50s | 17 sequential pages at 200/page |
+| Dashboard (sequential) | ~1.6s | | 4 serial API calls |
+| Dashboard (parallel) | ~670ms | | Same 4 calls via `Promise.all` |
+
+### Hard limits we can't change
+
+- **No batch/bulk API.** Aha! has no endpoint to fetch multiple resources in one call. Every feature, release, or user list is a separate HTTP request. Composite endpoints on our server help, but each still fans out to individual Aha! calls.
+- **No webhooks or push.** There's no way to subscribe to changes. We must poll or rely on cache TTLs. Stale-while-revalidate masks this for most interactions, but truly real-time sync isn't possible.
+- **~200-400ms base latency per call.** Even minimal payloads (auth check, single feature) take 200-400ms. This is Aha!'s server-side processing time — no client optimization can reduce it.
+- **Sequential pagination.** The API returns a `total_pages` count but doesn't support parallel page fetches (page N depends on knowing page N-1 completed). Large releases with 1000+ features will always be slow on first load.
+- **`/project_teams` unavailable on some plans.** The teams endpoint returns 404 on certain Aha! subscription tiers. Team data must be inferred from product users instead.
+- **Field filtering helps but has limits.** Using `?fields=` cuts response size 30-60%, but the API still processes the full query server-side. The savings are in transfer time, not query time.
+
+### What we do about it
+
+| Strategy | Impact |
+|---|---|
+| Composite server endpoints (`/api/aha/dashboard`, etc.) | Collapse 3-5 client round-trips into 1 |
+| `Promise.all` parallel fan-out | 57% faster than sequential for dashboard |
+| Lean `?fields=` on every call | 30-60% response size reduction |
+| Stale-while-revalidate caching | Instant loads on revisit, background refresh |
+| Tiered cache TTLs (teams 10min, releases 2min, features 1min) | Match cache duration to data volatility |
+| Request deduplication | Concurrent identical GETs share one in-flight request |
+| Optimistic UI updates | Score changes, standups, days-off appear instantly |
+| Hover prefetch + cache warming | Data ready before user clicks |
+| Server-side pagination | Only fetch 200 features at a time for UI |
+
 ## Project Structure
 
 ```
