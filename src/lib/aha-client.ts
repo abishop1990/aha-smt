@@ -3,11 +3,13 @@ import { getCacheKey, getFromCache, getStaleFromCache, setInCache, invalidateCac
 import { rateLimitedFetch } from "./aha-rate-limiter";
 import type {
   AhaFeature,
+  AhaIteration,
   AhaRelease,
   AhaProduct,
   AhaTeam,
   AhaUser,
 } from "./aha-types";
+import { isUnestimated } from "./points";
 
 // Track in-flight background refreshes to avoid duplicates
 const pendingRefreshes = new Set<string>();
@@ -153,7 +155,9 @@ export async function getCurrentUser(): Promise<AhaUser> {
 }
 
 export async function listProducts(): Promise<AhaProduct[]> {
-  return ahaFetchAllPages<AhaProduct>("/products", "products", undefined, 300);
+  return ahaFetchAllPages<AhaProduct>("/products", "products", {
+    fields: "id,reference_prefix,name,product_line,workspace_type",
+  }, 300);
 }
 
 export async function listReleasesInProduct(productId: string): Promise<AhaRelease[]> {
@@ -189,7 +193,7 @@ export async function listFeaturesPage(
     pagination: PaginatedFeatures["pagination"];
   }>(`/releases/${releaseId}/features`, {
     params: {
-      fields: "id,reference_num,name,score,workflow_status,assigned_to_user,tags,position,created_at",
+      fields: "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
       per_page: String(perPage),
       page: String(page),
     },
@@ -209,12 +213,12 @@ export async function listFeaturesInRelease(
     "features",
     {
       fields:
-        "id,reference_num,name,score,workflow_status,assigned_to_user,tags,position,created_at",
+        "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
     }
   );
 
   if (options?.unestimatedOnly) {
-    return features.filter((f) => f.score === null || f.score === undefined || f.score === 0);
+    return features.filter(isUnestimated);
   }
 
   return features;
@@ -226,7 +230,7 @@ export async function getFeature(featureId: string): Promise<AhaFeature> {
     {
       params: {
         fields:
-          "id,reference_num,name,score,workflow_status,assigned_to_user,tags,position,created_at,updated_at,description,requirements,release",
+          "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at,updated_at,description,requirements,release",
       },
     }
   );
@@ -260,4 +264,61 @@ export async function listUsersInProduct(productId: string): Promise<AhaUser[]> 
     { fields: "id,name,email,avatar_url" },
     300
   );
+}
+
+// --- Iteration API methods ---
+
+export async function listIterations(teamProductId: string): Promise<AhaIteration[]> {
+  return ahaFetchAllPages<AhaIteration>(
+    `/products/${teamProductId}/iterations`,
+    "iterations",
+    { fields: "id,name,reference_num,status,start_date,end_date" },
+    120
+  );
+}
+
+export async function getIteration(
+  teamProductId: string,
+  referenceNum: string
+): Promise<AhaIteration | undefined> {
+  const iterations = await listIterations(teamProductId);
+  return iterations.find((it) => it.reference_num === referenceNum);
+}
+
+export async function listFeaturesInIteration(
+  teamProductId: string,
+  iterationRef: string,
+  options?: { unestimatedOnly?: boolean }
+): Promise<AhaFeature[]> {
+  const features = await ahaFetchAllPages<AhaFeature>(
+    `/products/${teamProductId}/features`,
+    "features",
+    {
+      iteration: iterationRef,
+      fields:
+        "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
+    }
+  );
+
+  if (options?.unestimatedOnly) {
+    return features.filter(isUnestimated);
+  }
+
+  return features;
+}
+
+export async function updateFeatureWorkUnits(
+  featureId: string,
+  workUnits: number
+): Promise<AhaFeature> {
+  const response = await ahaFetch<{ feature: AhaFeature }>(
+    `/features/${featureId}`,
+    {
+      method: "PUT",
+      body: { feature: { work_units: workUnits } },
+    }
+  );
+  invalidateCache(`/features/${featureId}`);
+  invalidateCache("/products/");
+  return response.feature;
 }

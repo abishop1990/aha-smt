@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
       listProducts().catch(() => []),
     ]);
 
-    const pid = productId || products[0]?.id;
+    // Skip company-level product lines when auto-selecting
+    const defaultProduct = products.find((p) => !p.product_line) ?? products[0];
+    const pid = productId || defaultProduct?.id;
     if (!pid) {
       return NextResponse.json({
         user,

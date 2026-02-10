@@ -4,6 +4,7 @@ const envSchema = z.object({
   AHA_DOMAIN: z.string().min(1, "AHA_DOMAIN is required"),
   AHA_API_TOKEN: z.string().min(1, "AHA_API_TOKEN is required"),
   AHA_DEFAULT_PRODUCT_ID: z.string().optional(),
+  AHA_TEAM_PRODUCT_ID: z.string().optional(),
   DATABASE_URL: z.string().default("file:./data/aha-smt.db"),
   CACHE_TTL_SECONDS: z.coerce.number().default(60),
 });

@@ -25,6 +25,7 @@ export interface AhaFeature {
   reference_num: string;
   name: string;
   score?: number | null;
+  work_units?: number | null;
   workflow_status?: AhaWorkflowStatus;
   assigned_to_user?: AhaUser | null;
   tags?: string[];
@@ -34,6 +35,15 @@ export interface AhaFeature {
   description?: { body?: string };
   requirements?: Array<{ id: string; name: string; body?: string }>;
   release?: { id: string; reference_num: string; name: string };
+}
+
+export interface AhaIteration {
+  id: string;
+  name: string;
+  reference_num: string;
+  status: "complete" | "started" | "planning";
+  start_date: string | null;
+  end_date: string | null;
 }
 
 export interface AhaRelease {
@@ -51,6 +61,8 @@ export interface AhaProduct {
   id: string;
   reference_prefix: string;
   name: string;
+  product_line?: boolean;
+  workspace_type?: string;
 }
 
 export interface AhaTeamMember {

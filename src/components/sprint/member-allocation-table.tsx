@@ -5,6 +5,7 @@ import type { AhaFeature } from "@/lib/aha-types";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { CapacityBar } from "./capacity-bar";
 import { cn } from "@/lib/utils";
+import { getPoints } from "@/lib/points";
 
 interface MemberCapacity {
   name: string;
@@ -36,7 +37,7 @@ export function MemberAllocationTable({
     for (const feature of features) {
       const userId = feature.assigned_to_user?.id;
       if (userId) {
-        allocationMap[userId] = (allocationMap[userId] ?? 0) + (feature.score ?? 0);
+        allocationMap[userId] = (allocationMap[userId] ?? 0) + getPoints(feature);
       }
     }
 

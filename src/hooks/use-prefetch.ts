@@ -57,5 +57,35 @@ export function usePrefetch() {
     [queryClient]
   );
 
-  return { prefetchFeatures, prefetchReleases, prefetchFeature };
+  const prefetchIterations = useCallback(
+    () => {
+      queryClient.prefetchQuery({
+        queryKey: ["iterations"],
+        queryFn: async () => {
+          const res = await fetch("/api/aha/iterations");
+          if (!res.ok) throw new Error("prefetch failed");
+          return res.json();
+        },
+        staleTime: 5 * 60 * 1000,
+      });
+    },
+    [queryClient]
+  );
+
+  const prefetchIterationFeatures = useCallback(
+    (iterationRef: string) => {
+      queryClient.prefetchQuery({
+        queryKey: ["iteration-features", iterationRef, undefined],
+        queryFn: async () => {
+          const res = await fetch(`/api/aha/iterations/${iterationRef}/features`);
+          if (!res.ok) throw new Error("prefetch failed");
+          return res.json();
+        },
+        staleTime: 60 * 1000,
+      });
+    },
+    [queryClient]
+  );
+
+  return { prefetchFeatures, prefetchReleases, prefetchFeature, prefetchIterations, prefetchIterationFeatures };
 }

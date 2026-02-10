@@ -6,6 +6,7 @@ import { useFeatures } from "@/hooks/use-features";
 import { useSprintSnapshots } from "@/hooks/use-sprint-snapshots";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { getPoints, isUnestimated } from "@/lib/points";
 import {
   ListTodo,
   Calculator,
@@ -24,10 +25,8 @@ export default function DashboardPage() {
   const { data: snapshotsData } = useSprintSnapshots();
 
   const features = featuresData?.features ?? [];
-  const unestimated = features.filter(
-    (f) => f.score === null || f.score === undefined || f.score === 0
-  );
-  const totalPoints = features.reduce((sum, f) => sum + (f.score || 0), 0);
+  const unestimated = features.filter(isUnestimated);
+  const totalPoints = features.reduce((sum, f) => sum + getPoints(f), 0);
   const completedFeatures = features.filter((f) => f.workflow_status?.complete);
   const snapshots = snapshotsData?.snapshots ?? [];
   const avgVelocity =

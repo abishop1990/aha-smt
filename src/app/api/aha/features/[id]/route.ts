@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFeature, updateFeatureScore } from "@/lib/aha-client";
+import { getFeature, updateFeatureScore, updateFeatureWorkUnits } from "@/lib/aha-client";
 
 export async function GET(
   _request: NextRequest,
@@ -23,11 +23,18 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    if (typeof body.score !== "number") {
-      return NextResponse.json({ error: "score must be a number" }, { status: 400 });
+    let feature;
+    if (typeof body.work_units === "number") {
+      feature = await updateFeatureWorkUnits(id, body.work_units);
+    } else if (typeof body.score === "number") {
+      feature = await updateFeatureScore(id, body.score);
+    } else {
+      return NextResponse.json(
+        { error: "score or work_units must be a number" },
+        { status: 400 }
+      );
     }
 
-    const feature = await updateFeatureScore(id, body.score);
     return NextResponse.json(feature);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update feature";

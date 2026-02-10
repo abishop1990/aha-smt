@@ -4,7 +4,7 @@ import { QueryProvider } from "@/providers/query-provider";
 import { AppShell } from "@/components/layout/app-shell";
 
 export const metadata: Metadata = {
-  title: "Aha SMT — Scrum Master Tool",
+  title: "Aha! SMT — Scrum Master Tool",
   description: "Fast, focused scrum master workflows powered by Aha.io",
 };
 

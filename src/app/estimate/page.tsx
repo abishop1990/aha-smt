@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useReleases } from "@/hooks/use-releases";
-import { useFeatures, useUpdateFeatureScore } from "@/hooks/use-features";
+import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
 import { CriteriaScorer } from "@/components/estimate/criteria-scorer";
@@ -19,7 +19,7 @@ export default function EstimatePage() {
   const { data: featuresData, isLoading } = useFeatures(releaseId, {
     unestimatedOnly: true,
   });
-  const updateScore = useUpdateFeatureScore();
+  const updateEstimate = useUpdateFeatureEstimate();
 
   const features = featuresData?.features ?? [];
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -38,9 +38,10 @@ export default function EstimatePage() {
     async (points: number) => {
       if (!currentFeature) return;
 
-      await updateScore.mutateAsync({
+      await updateEstimate.mutateAsync({
         featureId: currentFeature.id,
-        score: points,
+        points,
+        field: "work_units",
       });
 
       // Save estimation history
@@ -68,7 +69,7 @@ export default function EstimatePage() {
         setCurrentIndex((i) => i + 1);
       }
     },
-    [currentFeature, currentIndex, criteria, suggestedPoints, features.length, updateScore]
+    [currentFeature, currentIndex, criteria, suggestedPoints, features.length, updateEstimate]
   );
 
   const handleSkip = useCallback(() => {
@@ -145,7 +146,7 @@ export default function EstimatePage() {
             </div>
           </div>
 
-          {updateScore.isPending && (
+          {updateEstimate.isPending && (
             <p className="text-sm text-text-secondary">Saving to Aha...</p>
           )}
         </div>

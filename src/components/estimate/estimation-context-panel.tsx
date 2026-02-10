@@ -3,6 +3,7 @@ import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AhaFeature } from "@/lib/aha-types";
+import { getPoints, isUnestimated } from "@/lib/points";
 import { useMemo } from "react";
 
 interface EstimationContextPanelProps {
@@ -22,7 +23,7 @@ export function EstimationContextPanel({
     const tagsLower = featureTags.map((t) => t.toLowerCase());
 
     return data.features.filter((f: AhaFeature) => {
-      if (f.score == null) return false;
+      if (isUnestimated(f)) return false;
       return f.tags?.some((tag) => tagsLower.includes(tag.toLowerCase()));
     });
   }, [data?.features, featureTags]);
@@ -64,7 +65,7 @@ export function EstimationContextPanel({
                 </p>
               </div>
               <Badge variant="default" className="shrink-0">
-                {feature.score} pts
+                {getPoints(feature)} pts
               </Badge>
             </li>
           ))}

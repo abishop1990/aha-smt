@@ -1,6 +1,7 @@
 "use client";
 
 import { useReleases } from "@/hooks/use-releases";
+import { useIterations } from "@/hooks/use-iterations";
 import { useSprintSnapshots, useCaptureSnapshot } from "@/hooks/use-sprint-snapshots";
 import { VelocityChart } from "@/components/metrics/velocity-chart";
 import { MetricSummaryCards } from "@/components/metrics/metric-summary-cards";
@@ -11,20 +12,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BarChart3, Camera } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function MetricsPage() {
   const { data: releasesData } = useReleases();
+  const { data: iterationsData } = useIterations();
   const { data: snapshotsData, isLoading } = useSprintSnapshots();
   const captureSnapshot = useCaptureSnapshot();
   const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
+  const [selectedIterationRef, setSelectedIterationRef] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState<"iteration" | "release">("iteration");
 
   const snapshots = snapshotsData?.snapshots ?? [];
   const releases = releasesData?.releases ?? [];
+  const iterations = iterationsData?.iterations ?? [];
 
   const handleCapture = async () => {
-    const releaseId = selectedReleaseId ?? releases[0]?.id;
-    if (!releaseId) return;
-    await captureSnapshot.mutateAsync(releaseId);
+    if (sourceType === "iteration") {
+      const ref = selectedIterationRef ?? iterations[0]?.reference_num;
+      if (!ref) return;
+      await captureSnapshot.mutateAsync({ iterationRef: ref });
+    } else {
+      const releaseId = selectedReleaseId ?? releases[0]?.id;
+      if (!releaseId) return;
+      await captureSnapshot.mutateAsync(releaseId);
+    }
   };
 
   if (isLoading) {
@@ -51,7 +63,44 @@ export default function MetricsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {releases.length > 0 && (
+          <div className="flex items-center gap-1 bg-surface border border-border rounded-md p-0.5">
+            <button
+              className={cn(
+                "px-2 py-1 text-xs rounded transition-colors",
+                sourceType === "iteration"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:text-text-primary"
+              )}
+              onClick={() => setSourceType("iteration")}
+            >
+              Iteration
+            </button>
+            <button
+              className={cn(
+                "px-2 py-1 text-xs rounded transition-colors",
+                sourceType === "release"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:text-text-primary"
+              )}
+              onClick={() => setSourceType("release")}
+            >
+              Release
+            </button>
+          </div>
+          {sourceType === "iteration" && iterations.length > 0 && (
+            <select
+              className="bg-surface border border-border rounded-md px-3 py-2 text-sm text-text-primary"
+              value={selectedIterationRef ?? iterations[0]?.reference_num ?? ""}
+              onChange={(e) => setSelectedIterationRef(e.target.value)}
+            >
+              {iterations.map((it) => (
+                <option key={it.id} value={it.reference_num}>
+                  {it.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {sourceType === "release" && releases.length > 0 && (
             <select
               className="bg-surface border border-border rounded-md px-3 py-2 text-sm text-text-primary"
               value={selectedReleaseId ?? releases[0]?.id ?? ""}
@@ -66,7 +115,7 @@ export default function MetricsPage() {
           )}
           <Button
             onClick={handleCapture}
-            disabled={captureSnapshot.isPending || releases.length === 0}
+            disabled={captureSnapshot.isPending || (sourceType === "release" ? releases.length === 0 : iterations.length === 0)}
           >
             <Camera className="h-4 w-4 mr-2" />
             {captureSnapshot.isPending ? "Capturing..." : "Capture Sprint"}

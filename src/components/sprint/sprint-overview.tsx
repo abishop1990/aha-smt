@@ -1,8 +1,12 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { AhaRelease, AhaFeature } from "@/lib/aha-types";
+import { getPoints } from "@/lib/points";
 
 interface SprintOverviewProps {
-  release: AhaRelease;
+  release?: AhaRelease;
+  sprintName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
   features: AhaFeature[];
   daysRemaining: number;
 }
@@ -16,8 +20,11 @@ function formatDate(dateStr: string | null | undefined): string {
   });
 }
 
-export function SprintOverview({ release, features, daysRemaining }: SprintOverviewProps) {
-  const totalPoints = features.reduce((sum, f) => sum + (f.score ?? 0), 0);
+export function SprintOverview({ release, sprintName: _sprintName, startDate, endDate, features, daysRemaining }: SprintOverviewProps) {
+  const start = startDate ?? release?.start_date;
+  const end = endDate ?? release?.release_date;
+
+  const totalPoints = features.reduce((sum, f) => sum + getPoints(f), 0);
   const completedCount = features.filter(
     (f) => f.workflow_status?.complete === true
   ).length;
@@ -32,7 +39,7 @@ export function SprintOverview({ release, features, daysRemaining }: SprintOverv
         </CardHeader>
         <CardContent>
           <p className="text-lg font-semibold text-text-primary">
-            {formatDate(release.start_date)} &ndash; {formatDate(release.release_date)}
+            {formatDate(start)} &ndash; {formatDate(end)}
           </p>
         </CardContent>
       </Card>

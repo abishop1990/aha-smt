@@ -75,10 +75,11 @@ describe("GET /api/aha/releases", () => {
     expect(data.productId).toBe("DEFAULT-PROD-456");
   });
 
-  it("should fall back to first product from listProducts when no product ID is available", async () => {
+  it("should fall back to first non-product-line product from listProducts", async () => {
     const mockProducts = [
-      { id: "PROD-FIRST", name: "First Product" },
-      { id: "PROD-SECOND", name: "Second Product" },
+      { id: "PROD-COMPANY", name: "Company", product_line: true },
+      { id: "PROD-FIRST", name: "First Product", product_line: false },
+      { id: "PROD-SECOND", name: "Second Product", product_line: false },
     ];
     const mockReleases = [
       {
@@ -107,7 +108,7 @@ describe("GET /api/aha/releases", () => {
     expect(data.productId).toBe("PROD-FIRST");
   });
 
-  it("should filter out parking_lot releases", async () => {
+  it("should include parking_lot releases sorted to the end", async () => {
     const mockReleases = [
       {
         id: "REL-1",
@@ -141,8 +142,11 @@ describe("GET /api/aha/releases", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    expect(data.releases).toHaveLength(2);
-    expect(data.releases.every((r: any) => !r.parking_lot)).toBe(true);
+    expect(data.releases).toHaveLength(3);
+    // Non-parking-lot first, parking lot last
+    expect(data.releases[0].parking_lot).toBe(false);
+    expect(data.releases[1].parking_lot).toBe(false);
+    expect(data.releases[2].parking_lot).toBe(true);
   });
 
   it("should sort releases by start_date descending", async () => {

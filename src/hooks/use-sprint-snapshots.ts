@@ -16,6 +16,8 @@ export interface SprintSnapshot {
   carryoverPoints: number;
   memberMetrics: string;
   featureSnapshot: string;
+  sourceType?: string;
+  pointSource?: string;
   capturedAt: string;
 }
 
@@ -34,11 +36,18 @@ export function useCaptureSnapshot() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (releaseId: string) => {
+    mutationFn: async (
+      input: string | { iterationRef: string; teamProductId?: string }
+    ) => {
+      const body =
+        typeof input === "string"
+          ? { releaseId: input }
+          : { iterationRef: input.iterationRef, teamProductId: input.teamProductId };
+
       const res = await fetch("/api/sprint-snapshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ releaseId }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to capture snapshot");
       return res.json();

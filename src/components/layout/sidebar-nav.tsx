@@ -41,7 +41,7 @@ export function SidebarNav() {
       {/* App logo / name */}
       <div className="flex h-14 items-center gap-2 border-b border-border px-5">
         <Zap className="h-5 w-5 text-primary" />
-        <span className="text-lg font-bold text-text-primary">Aha SMT</span>
+        <span className="text-lg font-bold text-text-primary">Aha! SMT</span>
       </div>
 
       {/* Navigation items */}

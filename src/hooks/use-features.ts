@@ -65,7 +65,7 @@ export function useUpdateFeatureScore() {
           return {
             ...old,
             features: old.features.map((f: any) =>
-              f.id === featureId ? { ...f, score } : f
+              f.id === featureId ? { ...f, score, work_units: score } : f
             ),
           };
         }
@@ -74,7 +74,7 @@ export function useUpdateFeatureScore() {
       // Optimistically update the single feature query
       queryClient.setQueryData(["feature", featureId], (old: any) => {
         if (!old) return old;
-        return { ...old, score };
+        return { ...old, score, work_units: score };
       });
 
       return { previousFeatures, previousFeature, featureId };
@@ -96,6 +96,79 @@ export function useUpdateFeatureScore() {
     onSettled: (_data, _error, { featureId }) => {
       // Refetch to ensure server state is synced (but UI already updated)
       queryClient.invalidateQueries({ queryKey: ["features"] });
+      queryClient.invalidateQueries({ queryKey: ["feature", featureId] });
+    },
+  });
+}
+
+export function useUpdateFeatureEstimate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      featureId,
+      points,
+      field,
+    }: {
+      featureId: string;
+      points: number;
+      field: "score" | "work_units";
+    }) => {
+      const res = await fetch(`/api/aha/features/${featureId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: points }),
+      });
+      if (!res.ok) throw new Error("Failed to update estimate");
+      return res.json();
+    },
+    onMutate: async ({ featureId, points, field }) => {
+      await queryClient.cancelQueries({ queryKey: ["features"] });
+      await queryClient.cancelQueries({ queryKey: ["iteration-features"] });
+      await queryClient.cancelQueries({ queryKey: ["feature", featureId] });
+
+      const previousFeatures = queryClient.getQueriesData({ queryKey: ["features"] });
+      const previousIterationFeatures = queryClient.getQueriesData({ queryKey: ["iteration-features"] });
+      const previousFeature = queryClient.getQueryData(["feature", featureId]);
+
+      // Optimistically update feature lists
+      const updateFn = (old: any) => {
+        if (!old?.features) return old;
+        return {
+          ...old,
+          features: old.features.map((f: any) =>
+            f.id === featureId ? { ...f, [field]: points } : f
+          ),
+        };
+      };
+      queryClient.setQueriesData({ queryKey: ["features"] }, updateFn);
+      queryClient.setQueriesData({ queryKey: ["iteration-features"] }, updateFn);
+
+      queryClient.setQueryData(["feature", featureId], (old: any) => {
+        if (!old) return old;
+        return { ...old, [field]: points };
+      });
+
+      return { previousFeatures, previousIterationFeatures, previousFeature, featureId };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousFeatures) {
+        for (const [key, data] of context.previousFeatures) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      if (context?.previousIterationFeatures) {
+        for (const [key, data] of context.previousIterationFeatures) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      if (context?.previousFeature) {
+        queryClient.setQueryData(["feature", context.featureId], context.previousFeature);
+      }
+    },
+    onSettled: (_data, _error, { featureId }) => {
+      queryClient.invalidateQueries({ queryKey: ["features"] });
+      queryClient.invalidateQueries({ queryKey: ["iteration-features"] });
       queryClient.invalidateQueries({ queryKey: ["feature", featureId] });
     },
   });

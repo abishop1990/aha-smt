@@ -78,6 +78,8 @@ export function getDb() {
       carryover_points REAL NOT NULL DEFAULT 0,
       member_metrics TEXT NOT NULL DEFAULT '[]',
       feature_snapshot TEXT NOT NULL DEFAULT '[]',
+      source_type TEXT NOT NULL DEFAULT 'release',
+      point_source TEXT NOT NULL DEFAULT 'score',
       captured_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS estimation_history (
@@ -103,6 +105,14 @@ export function getDb() {
       created_at TEXT NOT NULL
     );
   `);
+
+  // Migration: add new columns to sprint_snapshots for existing databases
+  try {
+    sqlite.exec(`ALTER TABLE sprint_snapshots ADD COLUMN source_type TEXT NOT NULL DEFAULT 'release'`);
+  } catch { /* column already exists */ }
+  try {
+    sqlite.exec(`ALTER TABLE sprint_snapshots ADD COLUMN point_source TEXT NOT NULL DEFAULT 'score'`);
+  } catch { /* column already exists */ }
 
   return _db;
 }

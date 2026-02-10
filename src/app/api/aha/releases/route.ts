@@ -13,25 +13,26 @@ export async function GET(request: NextRequest) {
     }
 
     if (!productId) {
-      // If no product ID, try to get the first product
+      // If no product ID, try to get the first non-product-line product
       const products = await listProducts();
       if (products.length === 0) {
         return NextResponse.json({ error: "No products found" }, { status: 404 });
       }
-      productId = products[0].id;
+      // Skip company-level product lines (they have no releases)
+      const workspace = products.find((p) => !p.product_line) ?? products[0];
+      productId = workspace.id;
     }
 
     const releases = await listReleasesInProduct(productId);
-    // Filter out parking lot releases and sort by start date
-    const activeReleases = releases
-      .filter((r) => !r.parking_lot)
-      .sort((a, b) => {
-        if (!a.start_date) return 1;
-        if (!b.start_date) return -1;
-        return b.start_date.localeCompare(a.start_date);
-      });
+    // Sort: non-parking-lot first (by start date desc), then parking lot at the end
+    const sorted = releases.sort((a, b) => {
+      if (a.parking_lot !== b.parking_lot) return a.parking_lot ? 1 : -1;
+      if (!a.start_date) return 1;
+      if (!b.start_date) return -1;
+      return b.start_date.localeCompare(a.start_date);
+    });
 
-    return NextResponse.json({ releases: activeReleases, productId });
+    return NextResponse.json({ releases: sorted, productId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch releases";
     return NextResponse.json({ error: message }, { status: 500 });

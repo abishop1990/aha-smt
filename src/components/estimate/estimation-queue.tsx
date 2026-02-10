@@ -3,6 +3,7 @@
 import type { AhaFeature } from "@/lib/aha-types";
 import { cn } from "@/lib/utils";
 import { usePrefetch } from "@/hooks/use-prefetch";
+import { isUnestimated } from "@/lib/points";
 
 interface EstimationQueueProps {
   features: AhaFeature[];
@@ -18,7 +19,7 @@ export function EstimationQueue({
   estimatedIds,
 }: EstimationQueueProps) {
   const { prefetchFeature } = usePrefetch();
-  const estimatedCount = estimatedIds?.size ?? features.filter((f) => f.score != null).length;
+  const estimatedCount = estimatedIds?.size ?? features.filter((f) => !isUnestimated(f)).length;
   const total = features.length;
   const progressPercent = total > 0 ? (estimatedCount / total) * 100 : 0;
 
@@ -62,7 +63,7 @@ export function EstimationQueue({
             >
               {feature.name}
             </span>
-            {(feature.score != null || estimatedIds?.has(feature.id)) && (
+            {(!isUnestimated(feature) || estimatedIds?.has(feature.id)) && (
               <span className="mt-0.5 text-xs text-success">
                 Estimated
               </span>

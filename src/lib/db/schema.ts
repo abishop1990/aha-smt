@@ -66,6 +66,8 @@ export const sprintSnapshots = sqliteTable("sprint_snapshots", {
   carryoverPoints: real("carryover_points").notNull().default(0),
   memberMetrics: text("member_metrics").notNull().default("[]"), // JSON
   featureSnapshot: text("feature_snapshot").notNull().default("[]"), // JSON
+  sourceType: text("source_type").notNull().default("release"), // 'release' | 'iteration'
+  pointSource: text("point_source").notNull().default("score"), // 'score' | 'work_units'
   capturedAt: text("captured_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
