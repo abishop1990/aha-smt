@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { usePrefetch } from "@/hooks/use-prefetch";
 
 const ICON_MAP = {
   LayoutDashboard,
@@ -26,6 +27,14 @@ const ICON_MAP = {
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { prefetchReleases } = usePrefetch();
+
+  const handleNavHover = (href: string) => {
+    // Prefetch releases for pages that need them
+    if (href === "/backlog" || href === "/estimate" || href === "/sprint") {
+      prefetchReleases();
+    }
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-border bg-surface">
@@ -48,6 +57,7 @@ export function SidebarNav() {
             <Link
               key={item.href}
               href={item.href}
+              onMouseEnter={() => handleNavHover(item.href)}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive

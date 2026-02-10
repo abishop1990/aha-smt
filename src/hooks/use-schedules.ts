@@ -46,7 +46,38 @@ export function useCreateDayOff() {
       if (!res.ok) throw new Error("Failed to create day off");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (newDayOff) => {
+      await queryClient.cancelQueries({ queryKey: ["days-off"] });
+      const previous = queryClient.getQueriesData({ queryKey: ["days-off"] });
+
+      // Optimistically add the new day off
+      queryClient.setQueriesData(
+        { queryKey: ["days-off"] },
+        (old: any) => {
+          if (!old?.daysOff) return old;
+          const optimistic = {
+            id: `temp-${Date.now()}` as any,
+            userId: newDayOff.userId || null,
+            userName: newDayOff.userName || null,
+            date: newDayOff.date,
+            reason: newDayOff.reason || "",
+            isHoliday: newDayOff.isHoliday || false,
+            createdAt: new Date().toISOString(),
+          };
+          return { ...old, daysOff: [...old.daysOff, optimistic] };
+        }
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["days-off"] });
     },
   });
@@ -61,7 +92,32 @@ export function useDeleteDayOff() {
       if (!res.ok) throw new Error("Failed to delete day off");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ["days-off"] });
+      const previous = queryClient.getQueriesData({ queryKey: ["days-off"] });
+
+      // Optimistically remove the deleted day off
+      queryClient.setQueriesData(
+        { queryKey: ["days-off"] },
+        (old: any) => {
+          if (!old?.daysOff) return old;
+          return {
+            ...old,
+            daysOff: old.daysOff.filter((d: DayOff) => d.id !== deletedId),
+          };
+        }
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["days-off"] });
     },
   });

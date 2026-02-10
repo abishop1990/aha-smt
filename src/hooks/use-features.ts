@@ -31,6 +31,7 @@ export function useFeature(featureId: string | null) {
       return res.json();
     },
     enabled: !!featureId,
+    staleTime: 30 * 1000, // 30 seconds - want fresh data when viewing details
   });
 }
 
@@ -47,9 +48,55 @@ export function useUpdateFeatureScore() {
       if (!res.ok) throw new Error("Failed to update score");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ featureId, score }) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["features"] });
+      await queryClient.cancelQueries({ queryKey: ["feature", featureId] });
+
+      // Snapshot previous values for rollback
+      const previousFeatures = queryClient.getQueriesData({ queryKey: ["features"] });
+      const previousFeature = queryClient.getQueryData(["feature", featureId]);
+
+      // Optimistically update the feature in all feature list queries
+      queryClient.setQueriesData(
+        { queryKey: ["features"] },
+        (old: any) => {
+          if (!old?.features) return old;
+          return {
+            ...old,
+            features: old.features.map((f: any) =>
+              f.id === featureId ? { ...f, score } : f
+            ),
+          };
+        }
+      );
+
+      // Optimistically update the single feature query
+      queryClient.setQueryData(["feature", featureId], (old: any) => {
+        if (!old) return old;
+        return { ...old, score };
+      });
+
+      return { previousFeatures, previousFeature, featureId };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousFeatures) {
+        for (const [key, data] of context.previousFeatures) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      if (context?.previousFeature) {
+        queryClient.setQueryData(
+          ["feature", context.featureId],
+          context.previousFeature
+        );
+      }
+    },
+    onSettled: (_data, _error, { featureId }) => {
+      // Refetch to ensure server state is synced (but UI already updated)
       queryClient.invalidateQueries({ queryKey: ["features"] });
-      queryClient.invalidateQueries({ queryKey: ["feature"] });
+      queryClient.invalidateQueries({ queryKey: ["feature", featureId] });
     },
   });
 }

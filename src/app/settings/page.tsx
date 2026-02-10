@@ -73,9 +73,9 @@ export default function SettingsPage() {
       {/* Connection Status */}
       <Card>
         <CardHeader>
-          <CardTitle>Aha Connection</CardTitle>
+          <CardTitle>Aha! Connection</CardTitle>
           <CardDescription>
-            Test your connection to the Aha API
+            Test your connection to the Aha! API
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

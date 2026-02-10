@@ -1,6 +1,7 @@
 "use client";
 
 import { useReleases } from "@/hooks/use-releases";
+import { usePrefetch } from "@/hooks/use-prefetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,6 +11,7 @@ import { Zap, ArrowRight } from "lucide-react";
 
 export default function SprintListPage() {
   const { data, isLoading } = useReleases();
+  const { prefetchFeatures } = usePrefetch();
   const releases = data?.releases ?? [];
 
   if (isLoading) {
@@ -43,7 +45,11 @@ export default function SprintListPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {releases.map((release) => (
-            <Link key={release.id} href={`/sprint/${release.id}`}>
+            <Link
+              key={release.id}
+              href={`/sprint/${release.id}`}
+              onMouseEnter={() => prefetchFeatures(release.id)}
+            >
               <Card className="hover:border-primary transition-colors cursor-pointer">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center justify-between">

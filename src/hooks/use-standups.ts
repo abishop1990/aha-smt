@@ -54,7 +54,38 @@ export function useCreateStandup() {
       if (!res.ok) throw new Error("Failed to create standup");
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (newStandup) => {
+      await queryClient.cancelQueries({ queryKey: ["standups"] });
+      const previous = queryClient.getQueriesData({ queryKey: ["standups"] });
+
+      // Optimistically add the new entry
+      queryClient.setQueriesData(
+        { queryKey: ["standups"] },
+        (old: any) => {
+          if (!old?.entries) return old;
+          const optimistic = {
+            id: `temp-${Date.now()}` as any,
+            ...newStandup,
+            featureRefs: Array.isArray(newStandup.featureRefs)
+              ? newStandup.featureRefs.join(",")
+              : "",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          return { ...old, entries: [optimistic, ...old.entries] };
+        }
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["standups"] });
     },
   });

@@ -1,7 +1,10 @@
+"use client";
+
 import { useMemo } from "react";
 import type { AhaFeature } from "@/lib/aha-types";
 import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
+import { usePrefetch } from "@/hooks/use-prefetch";
 
 interface SprintFeatureListProps {
   features: AhaFeature[];
@@ -14,6 +17,7 @@ interface AssigneeGroup {
 }
 
 export function SprintFeatureList({ features }: SprintFeatureListProps) {
+  const { prefetchFeature } = usePrefetch();
   const groups = useMemo<AssigneeGroup[]>(() => {
     const map = new Map<string, AhaFeature[]>();
 
@@ -55,6 +59,7 @@ export function SprintFeatureList({ features }: SprintFeatureListProps) {
               <li
                 key={feature.id}
                 className="flex items-center gap-3 rounded-md border border-border bg-surface px-3 py-2"
+                onMouseEnter={() => prefetchFeature(feature.id)}
               >
                 <FeatureBadge
                   referenceNum={feature.reference_num}

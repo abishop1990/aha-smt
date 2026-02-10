@@ -44,6 +44,15 @@ function processQueue() {
   }
 }
 
+/** @internal Reset rate limiter state for testing */
+export function __resetRateLimiter(): void {
+  burstTokens = BURST_LIMIT;
+  sustainedTokens = SUSTAINED_LIMIT;
+  lastBurstRefill = Date.now();
+  lastSustainedRefill = Date.now();
+  queue.length = 0;
+}
+
 export async function rateLimitedFetch(): Promise<void> {
   refillTokens();
 

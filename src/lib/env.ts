@@ -22,3 +22,8 @@ export function getEnv(): Env {
   _env = parsed.data;
   return _env;
 }
+
+/** @internal Reset cached env for testing */
+export function __resetEnv(): void {
+  _env = null;
+}

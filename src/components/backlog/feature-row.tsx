@@ -1,9 +1,12 @@
+"use client";
+
 import type { AhaFeature } from "@/lib/aha-types";
 import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { usePrefetch } from "@/hooks/use-prefetch";
 
 interface FeatureRowProps {
   feature: AhaFeature;
@@ -19,8 +22,10 @@ function formatDate(dateString: string): string {
 }
 
 export function FeatureRow({ feature, onEstimate }: FeatureRowProps) {
+  const { prefetchFeature } = usePrefetch();
+
   return (
-    <TableRow>
+    <TableRow onMouseEnter={() => prefetchFeature(feature.id)}>
       <TableCell>
         <FeatureBadge
           referenceNum={feature.reference_num}

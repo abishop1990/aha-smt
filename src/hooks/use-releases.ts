@@ -18,5 +18,6 @@ export function useReleases(productId?: string) {
       if (!res.ok) throw new Error("Failed to fetch releases");
       return res.json();
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes - releases rarely change
   });
 }

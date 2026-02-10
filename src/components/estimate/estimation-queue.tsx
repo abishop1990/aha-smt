@@ -2,6 +2,7 @@
 
 import type { AhaFeature } from "@/lib/aha-types";
 import { cn } from "@/lib/utils";
+import { usePrefetch } from "@/hooks/use-prefetch";
 
 interface EstimationQueueProps {
   features: AhaFeature[];
@@ -16,6 +17,7 @@ export function EstimationQueue({
   onSelect,
   estimatedIds,
 }: EstimationQueueProps) {
+  const { prefetchFeature } = usePrefetch();
   const estimatedCount = estimatedIds?.size ?? features.filter((f) => f.score != null).length;
   const total = features.length;
   const progressPercent = total > 0 ? (estimatedCount / total) * 100 : 0;
@@ -40,6 +42,7 @@ export function EstimationQueue({
             key={feature.id}
             type="button"
             onClick={() => onSelect(index)}
+            onMouseEnter={() => prefetchFeature(feature.id)}
             className={cn(
               "flex w-full flex-col gap-0.5 border-b border-border px-4 py-3 text-left transition-colors",
               "hover:bg-surface",
