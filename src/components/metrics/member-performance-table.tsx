@@ -44,7 +44,15 @@ export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProp
     for (const snapshot of snapshots) {
       let parsed: ParsedMemberMetrics = {};
       try {
-        parsed = JSON.parse(snapshot.memberMetrics) as ParsedMemberMetrics;
+        const raw = JSON.parse(snapshot.memberMetrics);
+        // Handle both array (legacy) and object (current) formats
+        if (Array.isArray(raw)) {
+          for (const entry of raw) {
+            parsed[entry.userId] = { name: entry.name, planned: entry.planned, completed: entry.completed };
+          }
+        } else {
+          parsed = raw as ParsedMemberMetrics;
+        }
       } catch {
         continue;
       }

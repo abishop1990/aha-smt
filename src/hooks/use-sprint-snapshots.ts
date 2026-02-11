@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export interface SprintSnapshot {
   id: number;
@@ -54,6 +55,10 @@ export function useCaptureSnapshot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sprint-snapshots"] });
+      toast.success("Sprint snapshot captured");
+    },
+    onError: () => {
+      toast.error("Failed to capture snapshot");
     },
   });
 }

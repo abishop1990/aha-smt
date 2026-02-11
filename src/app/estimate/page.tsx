@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
@@ -14,6 +16,7 @@ import { getSuggestedPoints, type EstimationCriteria } from "@/lib/constants";
 import { Calculator } from "lucide-react";
 
 export default function EstimatePage() {
+  const searchParams = useSearchParams();
   const { data: releasesData } = useReleases();
   const releaseId = releasesData?.releases?.[0]?.id ?? null;
   const { data: featuresData, isLoading } = useFeatures(releaseId, {
@@ -21,7 +24,7 @@ export default function EstimatePage() {
   });
   const updateEstimate = useUpdateFeatureEstimate();
 
-  const features = featuresData?.features ?? [];
+  const features = useMemo(() => featuresData?.features ?? [], [featuresData]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [criteria, setCriteria] = useState<EstimationCriteria>({
     scope: "M",
@@ -30,6 +33,21 @@ export default function EstimatePage() {
   });
   const [selectedPoints, setSelectedPoints] = useState<number | null>(null);
   const [estimatedIds, setEstimatedIds] = useState<Set<string>>(new Set());
+  const hasAppliedPreSelection = useRef(false);
+
+  // Auto-select feature from query param
+  useEffect(() => {
+    if (hasAppliedPreSelection.current || features.length === 0) return;
+
+    const featureId = searchParams.get("featureId");
+    if (featureId) {
+      const index = features.findIndex((f) => f.id === featureId);
+      if (index !== -1) {
+        setCurrentIndex(index);
+        hasAppliedPreSelection.current = true;
+      }
+    }
+  }, [features, searchParams]);
 
   const currentFeature = features[currentIndex] ?? null;
   const suggestedPoints = getSuggestedPoints(criteria);
@@ -38,35 +56,42 @@ export default function EstimatePage() {
     async (points: number) => {
       if (!currentFeature) return;
 
-      await updateEstimate.mutateAsync({
-        featureId: currentFeature.id,
-        points,
-        field: "original_estimate",
-      });
-
-      // Save estimation history
-      await fetch("/api/estimation-history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      try {
+        await updateEstimate.mutateAsync({
           featureId: currentFeature.id,
-          featureRefNum: currentFeature.reference_num,
-          featureName: currentFeature.name,
-          scope: criteria.scope,
-          complexity: criteria.complexity,
-          unknowns: criteria.unknowns,
-          suggestedPoints,
-          finalPoints: points,
-        }),
-      }).catch(() => {}); // Best effort
+          points,
+          field: "original_estimate",
+        });
 
-      setEstimatedIds((prev) => new Set(prev).add(currentFeature.id));
-      setSelectedPoints(null);
-      setCriteria({ scope: "M", complexity: "M", unknowns: "M" });
+        // Save estimation history
+        await fetch("/api/estimation-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            featureId: currentFeature.id,
+            featureRefNum: currentFeature.reference_num,
+            featureName: currentFeature.name,
+            scope: criteria.scope,
+            complexity: criteria.complexity,
+            unknowns: criteria.unknowns,
+            suggestedPoints,
+            finalPoints: points,
+          }),
+        }).catch(() => {}); // Best effort
 
-      // Move to next
-      if (currentIndex < features.length - 1) {
-        setCurrentIndex((i) => i + 1);
+        toast.success(`Estimated ${currentFeature.reference_num} at ${points} points`);
+
+        setEstimatedIds((prev) => new Set(prev).add(currentFeature.id));
+        setSelectedPoints(null);
+        setCriteria({ scope: "M", complexity: "M", unknowns: "M" });
+
+        // Move to next
+        if (currentIndex < features.length - 1) {
+          setCurrentIndex((i) => i + 1);
+        }
+      } catch (error) {
+        toast.error(`Failed to estimate ${currentFeature.reference_num}`);
+        console.error("Estimation error:", error);
       }
     },
     [currentFeature, currentIndex, criteria, suggestedPoints, features.length, updateEstimate]

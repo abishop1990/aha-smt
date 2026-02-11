@@ -4,15 +4,15 @@ import { use, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useFeatures } from "@/hooks/use-features";
 import { useDaysOff } from "@/hooks/use-schedules";
+import { useSettings } from "@/hooks/use-settings";
 import { SprintOverview } from "@/components/sprint/sprint-overview";
 import { MemberAllocationTable } from "@/components/sprint/member-allocation-table";
 import { SprintFeatureList } from "@/components/sprint/sprint-feature-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { differenceInBusinessDays, parseISO, isAfter } from "date-fns";
+import { calculateMemberCapacities } from "@/lib/capacity";
 import type { AhaRelease } from "@/lib/aha-types";
-
-const DEFAULT_POINTS_PER_DAY = 1;
 
 export default function SprintDetailPage({
   params,
@@ -34,6 +34,8 @@ export default function SprintDetailPage({
   const { data: featuresData, isLoading: featuresLoading } = useFeatures(releaseId);
   const features = useMemo(() => featuresData?.features ?? [], [featuresData]);
   const release = releaseData;
+  const { data: settings } = useSettings();
+  const pointsPerDay = parseFloat(settings?.defaultPointsPerDay ?? "1");
 
   const startDate = release?.start_date ? release.start_date : null;
   const endDate = release?.release_date ? release.release_date : null;
@@ -52,44 +54,17 @@ export default function SprintDetailPage({
     return differenceInBusinessDays(end, now);
   }, [endDate]);
 
-  const memberCapacities = useMemo(() => {
-    if (!startDate || !endDate) return {};
-
-    const totalBusinessDays = differenceInBusinessDays(parseISO(endDate), parseISO(startDate));
-    const daysOffList = daysOffData?.daysOff ?? [];
-
-    // Build a map of userId -> days off count
-    const daysOffByUser = new Map<string, number>();
-    const holidayCount = daysOffList.filter((d) => d.isHoliday).length;
-
-    for (const d of daysOffList) {
-      if (d.userId && !d.isHoliday) {
-        daysOffByUser.set(d.userId, (daysOffByUser.get(d.userId) || 0) + 1);
-      }
-    }
-
-    // Build capacity per member from features' assignees
-    const members: Record<
-      string,
-      { name: string; capacity: number; pointsPerDay: number; daysOff: number }
-    > = {};
-
-    for (const f of features) {
-      const userId = f.assigned_to_user?.id;
-      if (userId && !members[userId]) {
-        const userDaysOff = (daysOffByUser.get(userId) || 0) + holidayCount;
-        const availableDays = Math.max(0, totalBusinessDays - userDaysOff);
-        members[userId] = {
-          name: f.assigned_to_user?.name ?? "Unknown",
-          capacity: availableDays * DEFAULT_POINTS_PER_DAY,
-          pointsPerDay: DEFAULT_POINTS_PER_DAY,
-          daysOff: userDaysOff,
-        };
-      }
-    }
-
-    return members;
-  }, [startDate, endDate, features, daysOffData]);
+  const memberCapacities = useMemo(
+    () =>
+      calculateMemberCapacities(
+        startDate,
+        endDate,
+        features,
+        daysOffData?.daysOff ?? [],
+        pointsPerDay
+      ),
+    [startDate, endDate, features, daysOffData, pointsPerDay]
+  );
 
   const isLoading = releaseLoading || featuresLoading;
 

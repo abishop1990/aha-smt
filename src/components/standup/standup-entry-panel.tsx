@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
+import { parseBlockers, parseActionItems } from "@/lib/standup-parsers";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useTeamMembers } from "@/hooks/use-team-members";
 import { useStandups, useCreateStandup } from "@/hooks/use-standups";
@@ -45,11 +47,26 @@ export function StandupEntryPanel({ date }: StandupEntryPanelProps) {
 
   const handleSubmit = useCallback(
     (data: StandupFormData) => {
-      createStandup.mutate(data, {
-        onSuccess: () => {
-          setFormKey((k) => k + 1);
+      // Parse blockers and action items into structured arrays
+      const blockerItems = parseBlockers(data.blockers);
+      const actionItemEntries = parseActionItems(data.actionItems);
+
+      createStandup.mutate(
+        {
+          ...data,
+          blockerItems,
+          actionItemEntries,
         },
-      });
+        {
+          onSuccess: () => {
+            setFormKey((k) => k + 1);
+            toast.success("Standup submitted");
+          },
+          onError: () => {
+            toast.error("Failed to submit standup");
+          },
+        }
+      );
     },
     [createStandup]
   );

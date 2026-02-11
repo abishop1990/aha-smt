@@ -61,6 +61,8 @@ export function createTestDb() {
       carryover_points REAL NOT NULL DEFAULT 0,
       member_metrics TEXT NOT NULL DEFAULT '[]',
       feature_snapshot TEXT NOT NULL DEFAULT '[]',
+      source_type TEXT NOT NULL DEFAULT 'release',
+      point_source TEXT NOT NULL DEFAULT 'score',
       captured_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS estimation_history (
