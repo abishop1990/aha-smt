@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { StandupEntry } from "@/hooks/use-standups";
 
 export interface StandupFormData {
   userId: string;
@@ -21,14 +22,24 @@ interface StandupFormProps {
   userName: string;
   standupDate: string;
   onSubmit: (data: StandupFormData) => void;
+  initialData?: StandupEntry;
+  onCancel?: () => void;
 }
 
-export function StandupForm({ userId, userName, standupDate, onSubmit }: StandupFormProps) {
-  const [doneSinceLastStandup, setDoneSinceLastStandup] = useState("");
-  const [workingOnNow, setWorkingOnNow] = useState("");
-  const [blockers, setBlockers] = useState("");
-  const [actionItems, setActionItems] = useState("");
-  const [featureRefsInput, setFeatureRefsInput] = useState("");
+export function StandupForm({ userId, userName, standupDate, onSubmit, initialData, onCancel }: StandupFormProps) {
+  const [doneSinceLastStandup, setDoneSinceLastStandup] = useState(initialData?.doneSinceLastStandup ?? "");
+  const [workingOnNow, setWorkingOnNow] = useState(initialData?.workingOnNow ?? "");
+  const [blockers, setBlockers] = useState(initialData?.blockers ?? "");
+  const [actionItems, setActionItems] = useState(initialData?.actionItems ?? "");
+  const [featureRefsInput, setFeatureRefsInput] = useState(() => {
+    if (!initialData?.featureRefs) return "";
+    try {
+      const parsed = JSON.parse(initialData.featureRefs);
+      return Array.isArray(parsed) ? parsed.join(", ") : "";
+    } catch {
+      return "";
+    }
+  });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,9 +122,16 @@ export function StandupForm({ userId, userName, standupDate, onSubmit }: Standup
         />
       </div>
 
-      <Button type="submit" className="self-end">
-        Submit Standup
-      </Button>
+      <div className="flex items-center justify-end gap-2">
+        {onCancel && (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button type="submit">
+          {initialData ? "Update" : "Submit Standup"}
+        </Button>
+      </div>
     </form>
   );
 }

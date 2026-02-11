@@ -90,3 +90,65 @@ export function useCreateStandup() {
     },
   });
 }
+
+export function useUpdateStandup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: number;
+      doneSinceLastStandup: string;
+      workingOnNow: string;
+      blockers: string;
+      actionItems: string;
+      featureRefs?: string[];
+    }) => {
+      const { id, ...body } = data;
+      const res = await fetch(`/api/standups/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to update standup");
+      return res.json();
+    },
+    onMutate: async (updated) => {
+      await queryClient.cancelQueries({ queryKey: ["standups"] });
+      const previous = queryClient.getQueriesData({ queryKey: ["standups"] });
+
+      queryClient.setQueriesData(
+        { queryKey: ["standups"] },
+        (old: any) => {
+          if (!old?.entries) return old;
+          return {
+            ...old,
+            entries: old.entries.map((e: any) =>
+              e.id === updated.id
+                ? {
+                    ...e,
+                    ...updated,
+                    featureRefs: Array.isArray(updated.featureRefs)
+                      ? JSON.stringify(updated.featureRefs)
+                      : e.featureRefs,
+                    updatedAt: new Date().toISOString(),
+                  }
+                : e
+            ),
+          };
+        }
+      );
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["standups"] });
+    },
+  });
+}

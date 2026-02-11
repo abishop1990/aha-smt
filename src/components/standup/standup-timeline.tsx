@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { format, addDays, subDays } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useStandups } from "@/hooks/use-standups";
+import { toast } from "sonner";
+import { useStandups, useUpdateStandup } from "@/hooks/use-standups";
+import type { StandupEntry } from "@/hooks/use-standups";
 import { StandupEntryCard } from "@/components/standup/standup-entry-card";
 import { StandupEntryPanel } from "@/components/standup/standup-entry-panel";
+import { StandupForm, type StandupFormData } from "@/components/standup/standup-form";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface StandupTimelineProps {
   initialDate?: string;
@@ -16,11 +20,13 @@ export function StandupTimeline({ initialDate }: StandupTimelineProps = {}) {
   const [currentDate, setCurrentDate] = useState(
     initialDate ? new Date(initialDate + "T00:00:00") : new Date()
   );
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
 
   const dateStr = format(currentDate, "yyyy-MM-dd");
   const displayDate = format(currentDate, "EEE, MMM d, yyyy");
 
   const { data, isLoading } = useStandups(dateStr);
+  const updateStandup = useUpdateStandup();
   const entries = data?.entries ?? [];
 
   function goToPreviousDay() {
@@ -34,6 +40,39 @@ export function StandupTimeline({ initialDate }: StandupTimelineProps = {}) {
   function goToToday() {
     setCurrentDate(new Date());
   }
+
+  const handleEdit = useCallback((entry: StandupEntry) => {
+    setEditingEntryId(entry.id);
+  }, []);
+
+  const handleEditSubmit = useCallback(
+    (entryId: number, data: StandupFormData) => {
+      updateStandup.mutate(
+        {
+          id: entryId,
+          doneSinceLastStandup: data.doneSinceLastStandup,
+          workingOnNow: data.workingOnNow,
+          blockers: data.blockers,
+          actionItems: data.actionItems,
+          featureRefs: data.featureRefs,
+        },
+        {
+          onSuccess: () => {
+            setEditingEntryId(null);
+            toast.success("Standup updated");
+          },
+          onError: () => {
+            toast.error("Failed to update standup");
+          },
+        }
+      );
+    },
+    [updateStandup]
+  );
+
+  const handleEditCancel = useCallback(() => {
+    setEditingEntryId(null);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,9 +107,28 @@ export function StandupTimeline({ initialDate }: StandupTimelineProps = {}) {
       )}
 
       <div className="flex flex-col gap-3">
-        {entries.map((entry) => (
-          <StandupEntryCard key={entry.id} entry={entry} />
-        ))}
+        {entries.map((entry) =>
+          editingEntryId === entry.id ? (
+            <Card key={entry.id}>
+              <CardContent className="pt-6">
+                <StandupForm
+                  userId={entry.userId}
+                  userName={entry.userName}
+                  standupDate={entry.standupDate}
+                  initialData={entry}
+                  onSubmit={(data) => handleEditSubmit(entry.id, data)}
+                  onCancel={handleEditCancel}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <StandupEntryCard
+              key={entry.id}
+              entry={entry}
+              onEdit={handleEdit}
+            />
+          )
+        )}
       </div>
     </div>
   );

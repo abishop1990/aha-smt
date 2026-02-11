@@ -1,12 +1,15 @@
 import type { StandupEntry } from "@/hooks/use-standups";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StandupEntryCardProps {
   entry: StandupEntry;
   className?: string;
+  onEdit?: (entry: StandupEntry) => void;
 }
 
 function Section({ label, content }: { label: string; content: string }) {
@@ -22,7 +25,7 @@ function Section({ label, content }: { label: string; content: string }) {
   );
 }
 
-export function StandupEntryCard({ entry, className }: StandupEntryCardProps) {
+export function StandupEntryCard({ entry, className, onEdit }: StandupEntryCardProps) {
   let featureRefs: string[] = [];
   try {
     featureRefs = JSON.parse(entry.featureRefs);
@@ -34,7 +37,7 @@ export function StandupEntryCard({ entry, className }: StandupEntryCardProps) {
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader className="flex-row items-center gap-3 space-y-0 pb-3">
         <UserAvatar name={entry.userName} size="md" />
-        <div className="flex flex-col">
+        <div className="flex flex-1 flex-col">
           <span className="text-sm font-semibold text-text-primary">
             {entry.userName}
           </span>
@@ -42,6 +45,16 @@ export function StandupEntryCard({ entry, className }: StandupEntryCardProps) {
             {entry.standupDate}
           </span>
         </div>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-text-muted hover:text-text-primary"
+            onClick={() => onEdit(entry)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { actionItemsTable, standupEntries } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
           userId: actionItemsTable.userId,
           userName: standupEntries.userName,
           assigneeUserId: actionItemsTable.assigneeUserId,
+          assigneeName: sql<string | null>`(SELECT user_name FROM standup_entries WHERE user_id = ${actionItemsTable.assigneeUserId} LIMIT 1)`.as("assignee_name"),
           description: actionItemsTable.description,
           completed: actionItemsTable.completed,
           completedAt: actionItemsTable.completedAt,
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
           userId: actionItemsTable.userId,
           userName: standupEntries.userName,
           assigneeUserId: actionItemsTable.assigneeUserId,
+          assigneeName: sql<string | null>`(SELECT user_name FROM standup_entries WHERE user_id = ${actionItemsTable.assigneeUserId} LIMIT 1)`.as("assignee_name"),
           description: actionItemsTable.description,
           completed: actionItemsTable.completed,
           completedAt: actionItemsTable.completedAt,
