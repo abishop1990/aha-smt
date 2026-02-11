@@ -5,6 +5,7 @@ import { format, addDays, subDays } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useStandups } from "@/hooks/use-standups";
 import { StandupEntryCard } from "@/components/standup/standup-entry-card";
+import { StandupEntryPanel } from "@/components/standup/standup-entry-panel";
 import { Button } from "@/components/ui/button";
 
 interface StandupTimelineProps {
@@ -53,6 +54,8 @@ export function StandupTimeline({ initialDate }: StandupTimelineProps = {}) {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      <StandupEntryPanel date={dateStr} />
 
       {isLoading && (
         <p className="text-center text-sm text-text-muted">Loading standups...</p>
