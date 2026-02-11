@@ -41,7 +41,7 @@ export default function EstimatePage() {
       await updateEstimate.mutateAsync({
         featureId: currentFeature.id,
         points,
-        field: "work_units",
+        field: "original_estimate",
       });
 
       // Save estimation history

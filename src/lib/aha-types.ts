@@ -26,6 +26,7 @@ export interface AhaFeature {
   name: string;
   score?: number | null;
   work_units?: number | null;
+  original_estimate?: number | null;
   workflow_status?: AhaWorkflowStatus;
   assigned_to_user?: AhaUser | null;
   tags?: string[];
@@ -44,6 +45,8 @@ export interface AhaIteration {
   status: "complete" | "started" | "planning";
   start_date: string | null;
   end_date: string | null;
+  capacity?: number | null;
+  feature_count?: number;
 }
 
 export interface AhaRelease {

@@ -50,6 +50,54 @@ function getBaseUrl(): string {
   return `https://${AHA_DOMAIN}.aha.io/api/v1`;
 }
 
+function getGraphQLUrl(): string {
+  const { AHA_DOMAIN } = getEnv();
+  return `https://${AHA_DOMAIN}.aha.io/api/v2/graphql`;
+}
+
+async function ahaGraphQL<T>(
+  query: string,
+  variables?: Record<string, unknown>,
+  cacheTtl?: number,
+): Promise<T> {
+  const cacheKey = getCacheKey(`graphql:${query}:${JSON.stringify(variables ?? {})}`);
+
+  const cached = getFromCache<T>(cacheKey);
+  if (cached) return cached;
+
+  const stale = getStaleFromCache<T>(cacheKey);
+  if (stale?.isStale) {
+    return stale.data;
+  }
+
+  await rateLimitedFetch();
+
+  const response = await fetch(getGraphQLUrl(), {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ query, variables }),
+    keepalive: true,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Aha GraphQL error ${response.status}: ${text}`);
+  }
+
+  const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+
+  if (json.errors?.length) {
+    throw new Error(`Aha GraphQL error: ${json.errors[0].message}`);
+  }
+
+  if (!json.data) {
+    throw new Error("Aha GraphQL returned no data");
+  }
+
+  setInCache(cacheKey, json.data, cacheTtl);
+  return json.data;
+}
+
 function getHeaders(): HeadersInit {
   const { AHA_API_TOKEN } = getEnv();
   return {
@@ -193,7 +241,7 @@ export async function listFeaturesPage(
     pagination: PaginatedFeatures["pagination"];
   }>(`/releases/${releaseId}/features`, {
     params: {
-      fields: "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
+      fields: "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
       per_page: String(perPage),
       page: String(page),
     },
@@ -213,7 +261,7 @@ export async function listFeaturesInRelease(
     "features",
     {
       fields:
-        "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
+        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
     }
   );
 
@@ -230,7 +278,7 @@ export async function getFeature(featureId: string): Promise<AhaFeature> {
     {
       params: {
         fields:
-          "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at,updated_at,description,requirements,release",
+          "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at,updated_at,description,requirements,release",
       },
     }
   );
@@ -266,15 +314,113 @@ export async function listUsersInProduct(productId: string): Promise<AhaUser[]> 
   );
 }
 
-// --- Iteration API methods ---
+// --- Iteration API methods (GraphQL v2) ---
+
+// GraphQL status codes → readable status strings
+const ITERATION_STATUS_MAP: Record<number, AhaIteration["status"]> = {
+  10: "planning",
+  20: "started",
+  30: "complete",
+};
+
+interface GqlIteration {
+  id: string;
+  name: string;
+  referenceNum: string;
+  status: number;
+  startDate: string | null;
+  endDate: string | null;
+  capacity: { value: number; units: string } | null;
+  records: Array<{
+    id: string;
+    referenceNum: string;
+    name: string;
+    originalEstimate: { value: number; units: string } | null;
+    workflowStatus: { id: string; name: string; color: number; position: number; internalMeaning: string | null } | null;
+    assignedToUser: { id: string; name: string; email: string } | null;
+    tags: Array<{ name: string }> | null;
+    createdAt: string;
+  }>;
+}
+
+function mapGqlIteration(gql: GqlIteration): AhaIteration {
+  return {
+    id: gql.id,
+    name: gql.name,
+    reference_num: gql.referenceNum,
+    status: ITERATION_STATUS_MAP[gql.status] ?? "planning",
+    start_date: gql.startDate,
+    end_date: gql.endDate,
+    capacity: gql.capacity?.value ?? null,
+    feature_count: gql.records.length,
+  };
+}
+
+const COMPLETE_MEANINGS = new Set(["DONE", "SHIPPED"]);
+
+function mapGqlFeature(rec: GqlIteration["records"][number]): AhaFeature {
+  const ws = rec.workflowStatus;
+  return {
+    id: rec.id,
+    reference_num: rec.referenceNum,
+    name: rec.name,
+    original_estimate: rec.originalEstimate?.value ?? null,
+    workflow_status: ws
+      ? {
+          id: ws.id,
+          name: ws.name,
+          color: `#${ws.color.toString(16).padStart(6, "0")}`,
+          position: ws.position,
+          complete: COMPLETE_MEANINGS.has(ws.internalMeaning ?? ""),
+        }
+      : undefined,
+    assigned_to_user: rec.assignedToUser ?? null,
+    tags: rec.tags?.map((t) => t.name) ?? undefined,
+    position: 0,
+    created_at: rec.createdAt,
+  };
+}
+
+const ITERATION_FIELDS = `
+  id name referenceNum status startDate endDate
+  capacity { value units }
+  records {
+    ... on Feature {
+      id referenceNum name
+      originalEstimate { value units }
+      workflowStatus { id name color position internalMeaning }
+      assignedToUser { id name email }
+      tags { name }
+      createdAt
+    }
+  }
+`;
 
 export async function listIterations(teamProductId: string): Promise<AhaIteration[]> {
-  return ahaFetchAllPages<AhaIteration>(
-    `/products/${teamProductId}/iterations`,
-    "iterations",
-    { fields: "id,name,reference_num,status,start_date,end_date" },
-    120
-  );
+  const allIterations: AhaIteration[] = [];
+  let page = 1;
+  const perPage = 50;
+
+  while (true) {
+    const data = await ahaGraphQL<{
+      iterations: { nodes: GqlIteration[]; isLastPage: boolean };
+    }>(
+      `query($projectId: ID!, $page: Int!, $per: Int!) {
+        iterations(filters: { projectId: $projectId }, page: $page, per: $per) {
+          nodes { ${ITERATION_FIELDS} }
+          isLastPage
+        }
+      }`,
+      { projectId: teamProductId, page, per: perPage },
+      120
+    );
+
+    allIterations.push(...data.iterations.nodes.map(mapGqlIteration));
+    if (data.iterations.isLastPage) break;
+    page++;
+  }
+
+  return allIterations;
 }
 
 export async function getIteration(
@@ -290,21 +436,46 @@ export async function listFeaturesInIteration(
   iterationRef: string,
   options?: { unestimatedOnly?: boolean }
 ): Promise<AhaFeature[]> {
-  const features = await ahaFetchAllPages<AhaFeature>(
-    `/products/${teamProductId}/features`,
-    "features",
-    {
-      iteration: iterationRef,
-      fields:
-        "id,reference_num,name,score,work_units,workflow_status,assigned_to_user,tags,position,created_at",
-    }
-  );
+  // Fetch all iterations (cached), find the one we need, extract its records
+  const allIterations = await listIterationsWithFeatures(teamProductId);
+  const iteration = allIterations.find((it) => it.referenceNum === iterationRef);
+
+  if (!iteration) return [];
+
+  const features = iteration.records.map(mapGqlFeature);
 
   if (options?.unestimatedOnly) {
     return features.filter(isUnestimated);
   }
-
   return features;
+}
+
+/** Internal: returns raw GraphQL iterations with records intact for feature extraction */
+async function listIterationsWithFeatures(teamProductId: string): Promise<GqlIteration[]> {
+  const allIterations: GqlIteration[] = [];
+  let page = 1;
+  const perPage = 50;
+
+  while (true) {
+    const data = await ahaGraphQL<{
+      iterations: { nodes: GqlIteration[]; isLastPage: boolean };
+    }>(
+      `query($projectId: ID!, $page: Int!, $per: Int!) {
+        iterations(filters: { projectId: $projectId }, page: $page, per: $per) {
+          nodes { ${ITERATION_FIELDS} }
+          isLastPage
+        }
+      }`,
+      { projectId: teamProductId, page, per: perPage },
+      120
+    );
+
+    allIterations.push(...data.iterations.nodes);
+    if (data.iterations.isLastPage) break;
+    page++;
+  }
+
+  return allIterations;
 }
 
 export async function updateFeatureWorkUnits(
@@ -316,6 +487,22 @@ export async function updateFeatureWorkUnits(
     {
       method: "PUT",
       body: { feature: { work_units: workUnits } },
+    }
+  );
+  invalidateCache(`/features/${featureId}`);
+  invalidateCache("/products/");
+  return response.feature;
+}
+
+export async function updateFeatureEstimate(
+  featureId: string,
+  estimate: number
+): Promise<AhaFeature> {
+  const response = await ahaFetch<{ feature: AhaFeature }>(
+    `/features/${featureId}`,
+    {
+      method: "PUT",
+      body: { feature: { original_estimate: estimate } },
     }
   );
   invalidateCache(`/features/${featureId}`);

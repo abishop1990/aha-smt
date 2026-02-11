@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { AhaRelease, AhaFeature } from "@/lib/aha-types";
-import { getPoints } from "@/lib/points";
+import { getPoints, formatPoints } from "@/lib/points";
 
 interface SprintOverviewProps {
   release?: AhaRelease;
@@ -51,7 +51,7 @@ export function SprintOverview({ release, sprintName: _sprintName, startDate, en
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold text-text-primary">{totalPoints}</p>
+          <p className="text-2xl font-bold text-text-primary">{formatPoints(totalPoints)}</p>
         </CardContent>
       </Card>
 

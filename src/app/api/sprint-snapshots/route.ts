@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sprintSnapshots } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
 import { getPoints } from "@/lib/points";
 import { getEnv } from "@/lib/env";
@@ -117,11 +117,17 @@ export async function POST(request: NextRequest) {
       name: f.name,
       score: f.score,
       workUnits: f.work_units,
+      originalEstimate: f.original_estimate,
       points: getPoints(f),
       status: f.workflow_status?.name,
       complete: f.workflow_status?.complete,
       assignee: f.assigned_to_user?.name,
     }));
+
+    // Replace existing snapshot for the same sprint
+    await db
+      .delete(sprintSnapshots)
+      .where(eq(sprintSnapshots.releaseRefNum, releaseRefNum));
 
     const snapshot = await db
       .insert(sprintSnapshots)

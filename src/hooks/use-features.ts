@@ -112,7 +112,7 @@ export function useUpdateFeatureEstimate() {
     }: {
       featureId: string;
       points: number;
-      field: "score" | "work_units";
+      field: "score" | "work_units" | "original_estimate";
     }) => {
       const res = await fetch(`/api/aha/features/${featureId}`, {
         method: "PUT",

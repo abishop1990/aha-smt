@@ -6,7 +6,7 @@ import { useFeatures } from "@/hooks/use-features";
 import { useSprintSnapshots } from "@/hooks/use-sprint-snapshots";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { getPoints, isUnestimated } from "@/lib/points";
+import { getPoints, formatPoints, isUnestimated } from "@/lib/points";
 import {
   ListTodo,
   Calculator,
@@ -78,7 +78,7 @@ export default function DashboardPage() {
             {isLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">{totalPoints}</div>
+              <div className="text-2xl font-bold">{formatPoints(totalPoints)}</div>
             )}
             <p className="text-xs text-text-muted mt-1">
               across {features.length} features

@@ -18,6 +18,8 @@ export async function GET(
       );
     }
 
+    // GraphQL returns iteration+features in a single cached call,
+    // so these two share the same underlying request
     const [iteration, features, users] = await Promise.all([
       getIteration(teamProductId, ref),
       listFeaturesInIteration(teamProductId, ref),

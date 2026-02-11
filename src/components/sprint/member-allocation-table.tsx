@@ -5,7 +5,7 @@ import type { AhaFeature } from "@/lib/aha-types";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { CapacityBar } from "./capacity-bar";
 import { cn } from "@/lib/utils";
-import { getPoints } from "@/lib/points";
+import { getPoints, formatPoints } from "@/lib/points";
 
 interface MemberCapacity {
   name: string;
@@ -71,7 +71,7 @@ export function MemberAllocationTable({
       key: "allocated",
       header: "Allocated (pts)",
       className: "text-right",
-      render: (row) => <span className="text-text-primary">{row.allocated}</span>,
+      render: (row) => <span className="text-text-primary">{formatPoints(row.allocated)}</span>,
     },
     {
       key: "delta",
@@ -85,7 +85,7 @@ export function MemberAllocationTable({
           )}
         >
           {row.delta >= 0 ? "+" : ""}
-          {row.delta}
+          {formatPoints(row.delta)}
         </span>
       ),
     },

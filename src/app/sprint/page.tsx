@@ -109,6 +109,11 @@ export default function SprintListPage() {
                     <div className="flex items-center gap-4 text-sm text-text-secondary">
                       <span className="font-mono text-xs">{iteration.reference_num}</span>
                       {getIterationStatusBadge(iteration.status)}
+                      {typeof iteration.feature_count === "number" && (
+                        <span className="text-text-muted">
+                          {iteration.feature_count} feature{iteration.feature_count !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </div>
                     {iteration.start_date && iteration.end_date && (
                       <div className="mt-2 text-sm text-text-secondary">

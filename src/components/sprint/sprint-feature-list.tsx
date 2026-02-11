@@ -5,7 +5,7 @@ import type { AhaFeature } from "@/lib/aha-types";
 import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
 import { usePrefetch } from "@/hooks/use-prefetch";
-import { getPoints } from "@/lib/points";
+import { getPoints, formatPoints } from "@/lib/points";
 
 interface SprintFeatureListProps {
   features: AhaFeature[];
@@ -51,7 +51,7 @@ export function SprintFeatureList({ features }: SprintFeatureListProps) {
               {group.name}
             </h3>
             <Badge variant="secondary">
-              {group.totalPoints} pt{group.totalPoints !== 1 ? "s" : ""}
+              {formatPoints(group.totalPoints)} pt{group.totalPoints !== 1 ? "s" : ""}
             </Badge>
           </div>
 
@@ -74,7 +74,7 @@ export function SprintFeatureList({ features }: SprintFeatureListProps) {
 
                 {getPoints(feature) > 0 && (
                   <Badge variant="outline" className="shrink-0">
-                    {getPoints(feature)} pt{getPoints(feature) !== 1 ? "s" : ""}
+                    {formatPoints(getPoints(feature))} pt{getPoints(feature) !== 1 ? "s" : ""}
                   </Badge>
                 )}
               </li>

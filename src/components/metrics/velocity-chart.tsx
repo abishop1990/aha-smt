@@ -17,11 +17,17 @@ interface VelocityChartProps {
 }
 
 export function VelocityChart({ snapshots }: VelocityChartProps) {
-  const data = snapshots.map((s) => ({
-    name: s.releaseName,
-    planned: s.totalPointsPlanned,
-    completed: s.totalPointsCompleted,
-  }));
+  const data = [...snapshots]
+    .sort((a, b) => {
+      const dateA = a.startDate ?? a.endDate ?? a.capturedAt;
+      const dateB = b.startDate ?? b.endDate ?? b.capturedAt;
+      return dateA.localeCompare(dateB);
+    })
+    .map((s) => ({
+      name: s.releaseName,
+      planned: s.totalPointsPlanned,
+      completed: s.totalPointsCompleted,
+    }));
 
   return (
     <Card>

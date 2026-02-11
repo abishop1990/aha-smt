@@ -115,8 +115,13 @@ export function SprintComparisonCard({ snapshots }: SprintComparisonCardProps) {
     );
   }
 
-  const previous = toSummary(snapshots[snapshots.length - 2]);
-  const current = toSummary(snapshots[snapshots.length - 1]);
+  const sorted = [...snapshots].sort((a, b) => {
+    const dateA = a.startDate ?? a.endDate ?? a.capturedAt;
+    const dateB = b.startDate ?? b.endDate ?? b.capturedAt;
+    return dateA.localeCompare(dateB);
+  });
+  const previous = toSummary(sorted[sorted.length - 2]);
+  const current = toSummary(sorted[sorted.length - 1]);
 
   return (
     <Card>
