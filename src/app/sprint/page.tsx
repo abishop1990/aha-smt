@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useReleases } from "@/hooks/use-releases";
 import { useIterations } from "@/hooks/use-iterations";
 import { usePrefetch } from "@/hooks/use-prefetch";
@@ -12,15 +12,36 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Zap, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getConfig } from "@/lib/config";
 import type { AhaIteration } from "@/lib/aha-types";
 
 export default function SprintListPage() {
-  const [view, setView] = useState<"iterations" | "releases">("iterations");
+  const config = getConfig();
+  const sprintMode = config.sprints.mode;
+  const [view, setView] = useState<"iterations" | "releases">(
+    sprintMode === "releases" ? "releases" : config.sprints.defaultView
+  );
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
   const { data: iterationsData, isLoading: iterationsLoading } = useIterations();
   const { prefetchFeatures, prefetchIterationFeatures } = usePrefetch();
-  const releases = releasesData?.releases ?? [];
-  const iterations = iterationsData?.iterations ?? [];
+  const releases = useMemo(
+    () =>
+      [...(releasesData?.releases ?? [])].sort((a, b) => {
+        const da = a.start_date ?? "";
+        const db = b.start_date ?? "";
+        return db.localeCompare(da);
+      }),
+    [releasesData]
+  );
+  const iterations = useMemo(
+    () =>
+      [...(iterationsData?.iterations ?? [])].sort((a, b) => {
+        const da = a.start_date ?? "";
+        const db = b.start_date ?? "";
+        return db.localeCompare(da);
+      }),
+    [iterationsData]
+  );
 
   const isLoading = view === "iterations" ? iterationsLoading : releasesLoading;
 
@@ -57,30 +78,32 @@ export default function SprintListPage() {
             Select a sprint to view capacity and allocation
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            className={cn(
-              "px-3 py-1.5 text-sm rounded-md transition-colors",
-              view === "iterations"
-                ? "bg-primary text-white"
-                : "text-text-secondary hover:text-text-primary"
-            )}
-            onClick={() => setView("iterations")}
-          >
-            Iterations
-          </button>
-          <button
-            className={cn(
-              "px-3 py-1.5 text-sm rounded-md transition-colors",
-              view === "releases"
-                ? "bg-primary text-white"
-                : "text-text-secondary hover:text-text-primary"
-            )}
-            onClick={() => setView("releases")}
-          >
-            Releases
-          </button>
-        </div>
+        {sprintMode === "both" && (
+          <div className="flex items-center gap-2">
+            <button
+              className={cn(
+                "px-3 py-1.5 text-sm rounded-md transition-colors",
+                view === "iterations"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:text-text-primary"
+              )}
+              onClick={() => setView("iterations")}
+            >
+              Iterations
+            </button>
+            <button
+              className={cn(
+                "px-3 py-1.5 text-sm rounded-md transition-colors",
+                view === "releases"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:text-text-primary"
+              )}
+              onClick={() => setView("releases")}
+            >
+              Releases
+            </button>
+          </div>
+        )}
       </div>
 
       {view === "iterations" ? (

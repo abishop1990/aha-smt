@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { FIBONACCI_POINTS } from "@/lib/constants";
+import { getPointScale } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,8 @@ export function PointPicker({
   onSelect,
   onSkip,
 }: PointPickerProps) {
+  const pointScale = getPointScale();
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -31,20 +33,20 @@ export function PointPicker({
       }
 
       const keyIndex = parseInt(e.key, 10);
-      if (keyIndex >= 1 && keyIndex <= FIBONACCI_POINTS.length) {
+      if (keyIndex >= 1 && keyIndex <= pointScale.length) {
         e.preventDefault();
-        onSelect(FIBONACCI_POINTS[keyIndex - 1]);
+        onSelect(pointScale[keyIndex - 1]);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onSelect, onSkip]);
+  }, [onSelect, onSkip, pointScale]);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {FIBONACCI_POINTS.map((points, index) => {
+        {pointScale.map((points, index) => {
           const isSuggested = points === suggestedPoints;
           const isSelected = points === selectedPoints;
 

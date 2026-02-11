@@ -1,5 +1,5 @@
 import { describe, it, expect, test } from "vitest";
-import { getSuggestedPoints, FIBONACCI_POINTS, type EstimationCriteria } from "@/lib/constants";
+import { getSuggestedPoints, getPointScale, type EstimationCriteria } from "@/lib/constants";
 
 describe("constants", () => {
   describe("getSuggestedPoints", () => {
@@ -61,13 +61,13 @@ describe("constants", () => {
     });
   });
 
-  describe("FIBONACCI_POINTS", () => {
-    it("contains the correct Fibonacci sequence", () => {
-      expect(FIBONACCI_POINTS).toEqual([1, 2, 3, 5, 8, 13, 21]);
+  describe("getPointScale", () => {
+    it("returns the default Fibonacci-like scale", () => {
+      expect(getPointScale()).toEqual([1, 2, 3, 5, 8, 13, 21]);
     });
 
     it("has exactly 7 elements", () => {
-      expect(FIBONACCI_POINTS).toHaveLength(7);
+      expect(getPointScale()).toHaveLength(7);
     });
   });
 });

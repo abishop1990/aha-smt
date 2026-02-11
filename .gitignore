@@ -28,6 +28,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# org config (local override — copy aha-smt.config.example.ts to get started)
+aha-smt.config.ts
+
 # env files
 .env
 .env.local

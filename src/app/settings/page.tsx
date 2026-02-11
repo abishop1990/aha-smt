@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { getConfig } from "@/lib/config";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -50,10 +52,16 @@ export default function SettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
+      toast.success("Settings saved");
+    },
+    onError: () => {
+      toast.error("Failed to save settings");
     },
   });
 
-  const [defaultPointsPerDay, setDefaultPointsPerDay] = useState("1");
+  const [defaultPointsPerDay, setDefaultPointsPerDay] = useState(
+    String(getConfig().points.defaultPerDay)
+  );
 
   useEffect(() => {
     if (settings?.defaultPointsPerDay) {
@@ -142,9 +150,6 @@ export default function SettingsPage() {
           >
             {saveSettings.isPending ? "Saving..." : "Save"}
           </Button>
-          {saveSettings.isSuccess && (
-            <Badge variant="success" className="ml-2">Saved</Badge>
-          )}
         </CardContent>
       </Card>
 

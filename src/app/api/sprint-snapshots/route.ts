@@ -4,6 +4,7 @@ import { sprintSnapshots } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
 import { getPoints } from "@/lib/points";
+import { getConfig } from "@/lib/config";
 import { getEnv } from "@/lib/env";
 
 export async function GET() {
@@ -34,9 +35,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const primarySource = getConfig().points.source[0] ?? "original_estimate";
     let features: any[];
     let sourceType: "release" | "iteration";
-    let pointSource: "score" | "work_units";
+    let pointSource: string;
     let snapshotReleaseId: string;
     let releaseRefNum: string;
     let releaseName: string;
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
 
       features = iterationFeatures;
       sourceType = "iteration";
-      pointSource = "work_units";
+      pointSource = primarySource;
       snapshotReleaseId = iteration.id;
       releaseRefNum = iteration.reference_num;
       releaseName = iteration.name;
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
 
       features = releaseFeatures;
       sourceType = "release";
-      pointSource = "score";
+      pointSource = primarySource;
       snapshotReleaseId = releaseId;
       releaseRefNum = releaseData.reference_num;
       releaseName = releaseData.name;
@@ -105,10 +107,11 @@ export async function POST(request: NextRequest) {
       }
       memberMap.set(userId, existing);
     }
-    const memberMetrics = Array.from(memberMap.entries()).map(([userId, data]) => ({
-      userId,
-      ...data,
-    }));
+
+    const memberMetrics: Record<string, { name: string; planned: number; completed: number; features: number }> = {};
+    for (const [userId, data] of memberMap) {
+      memberMetrics[userId] = data;
+    }
 
     // Build feature snapshot
     const featureSnapshot = features.map((f) => ({

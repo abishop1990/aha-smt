@@ -356,10 +356,11 @@ function mapGqlIteration(gql: GqlIteration): AhaIteration {
   };
 }
 
-const COMPLETE_MEANINGS = new Set(["DONE", "SHIPPED"]);
+import { getConfig } from "./config";
 
 function mapGqlFeature(rec: GqlIteration["records"][number]): AhaFeature {
   const ws = rec.workflowStatus;
+  const completeMeanings = new Set(getConfig().workflow.completeMeanings);
   return {
     id: rec.id,
     reference_num: rec.referenceNum,
@@ -371,7 +372,7 @@ function mapGqlFeature(rec: GqlIteration["records"][number]): AhaFeature {
           name: ws.name,
           color: `#${ws.color.toString(16).padStart(6, "0")}`,
           position: ws.position,
-          complete: COMPLETE_MEANINGS.has(ws.internalMeaning ?? ""),
+          complete: completeMeanings.has(ws.internalMeaning ?? ""),
         }
       : undefined,
     assigned_to_user: rec.assignedToUser ?? null,

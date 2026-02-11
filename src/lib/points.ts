@@ -1,14 +1,24 @@
 import type { AhaFeature } from "./aha-types";
+import { getConfig, type PointField } from "./config";
 
-/** Single source of truth: prefer original_estimate, fall back to score. */
+/** Extract points from a feature using the configured source priority order. */
 export function getPoints(feature: AhaFeature): number {
-  return feature.original_estimate ?? feature.score ?? 0;
+  const { source } = getConfig().points;
+  for (const field of source) {
+    const val = feature[field as PointField];
+    if (val != null) return val;
+  }
+  return 0;
 }
 
 /** True when the feature has no meaningful point estimate. */
 export function isUnestimated(feature: AhaFeature): boolean {
-  const pts = feature.original_estimate ?? feature.score;
-  return pts === null || pts === undefined || pts === 0;
+  const { source } = getConfig().points;
+  for (const field of source) {
+    const val = feature[field as PointField];
+    if (val != null && val !== 0) return false;
+  }
+  return true;
 }
 
 /** Format a numeric point value: hide decimals when whole, max 2 decimal places otherwise. */
