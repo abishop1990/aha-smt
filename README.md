@@ -9,10 +9,11 @@ Scrum masters need a small, fast set of tools — not the full product managemen
 ## Features
 
 - **Backlog Grooming** — View and filter unestimated features by release, assignee, and tags
-- **Three-Criteria Estimation** — Score features across Scope, Complexity, and Unknowns with a suggested Fibonacci point value. Writes scores back to Aha. Keyboard shortcuts for fast flow.
-- **Sprint Planning** — Per-member capacity vs allocation with days-off tracking. Visual capacity bars showing over/under-commitment.
+- **Three-Criteria Estimation** — Score features across Scope, Complexity, and Unknowns with a suggested point value. Writes scores back to Aha. Keyboard shortcuts for fast flow.
+- **Sprint Planning** — Per-member capacity vs allocation with days-off tracking. Visual capacity bars showing over/under-commitment. Supports both Aha iterations and releases.
 - **Standup Tracking** — Daily standup entries with blocker aging (amber >2d, red >5d) and action item tracking
 - **Sprint Metrics** — Capture sprint snapshots, track velocity over time, compare sprints side-by-side, and view per-member performance
+- **Org Configuration** — Externalized config for point source priority, estimation scale, sprint mode, workflow statuses, and the estimation matrix. Customize per org without forking.
 
 ## Tech Stack
 
@@ -21,6 +22,7 @@ Scrum masters need a small, fast set of tools — not the full product managemen
 - TanStack React Query v5 — client-side caching
 - Drizzle ORM + better-sqlite3 — local DB for standups, snapshots, days off
 - recharts — velocity and metrics charts
+- Vitest — 249 tests across 19 test files
 
 ## Getting Started
 
@@ -39,6 +41,9 @@ npm install
 cp .env.example .env.local
 # Edit .env.local with your Aha domain and API token
 
+# Create org config (edit to customize)
+cp aha-smt.config.example.ts aha-smt.config.ts
+
 # Start dev server
 npm run dev
 ```
@@ -56,22 +61,57 @@ Open [http://localhost:3000/settings](http://localhost:3000/settings) to verify 
 | `DATABASE_URL` | No | SQLite path (default: `file:./data/aha-smt.db`) |
 | `CACHE_TTL_SECONDS` | No | Server-side cache TTL (default: `60`) |
 
+### Org Configuration
+
+`aha-smt.config.ts` controls org-specific behavior. The file is gitignored — each deployment maintains its own copy. Copy `aha-smt.config.example.ts` to get started; the app works out of the box with defaults.
+
+| Setting | Default | Description |
+|---|---|---|
+| `points.source` | `["original_estimate", "score"]` | Priority order for extracting points from a feature. First non-null value wins. |
+| `points.scale` | `[1, 2, 3, 5, 8, 13, 21]` | Point values shown in the estimation UI |
+| `points.defaultPerDay` | `1` | Starting default for points-per-day capacity (overridable in Settings) |
+| `sprints.mode` | `"both"` | `"iterations"`, `"releases"`, or `"both"` |
+| `sprints.defaultView` | `"iterations"` | Default tab when mode is `"both"` |
+| `workflow.completeMeanings` | `["DONE", "SHIPPED"]` | Aha `internalMeaning` values that count as complete |
+| `estimation.matrix` | See example file | Scope/Complexity/Unknowns → Points lookup (keys like `"L-M-H"`) |
+
+Example customization:
+
+```typescript
+import { defineConfig } from "@/lib/config";
+
+export default defineConfig({
+  points: {
+    source: ["original_estimate"],
+    scale: [0.5, 1, 2, 3, 5, 8, 13],
+  },
+  sprints: {
+    mode: "iterations",
+  },
+  workflow: {
+    completeMeanings: ["DONE"],
+  },
+});
+```
+
+Only include the settings you want to override — everything else falls back to defaults via deep merge.
+
+## Commands
+
+```bash
+npm run dev          # Start dev server (http://localhost:3000)
+npm run build        # Production build (verifies TypeScript + ESLint)
+npm test             # Run all tests (vitest)
+npm run test:watch   # Watch mode
+npm run bench        # Run micro-benchmarks (vitest bench)
+npx tsx benchmarks/live-api-benchmark.ts  # Live Aha API latency test
+```
+
 ## Architecture
 
 ### Aha API Proxy
 
 All Aha API calls go through Next.js Route Handlers (`/api/aha/*`) to keep the token server-side. Every request uses `?fields=...` to minimize payload size. Responses are cached in-memory with configurable TTL. A token-bucket rate limiter (20 req/sec burst, 300 req/min sustained) prevents hitting Aha's rate limits.
-
-### Local Database
-
-SQLite stores data that doesn't belong in Aha:
-- **Standup entries** — daily updates per team member
-- **Blockers & action items** — tracked across standups with aging and resolution
-- **Sprint snapshots** — captured at sprint end for historical metrics
-- **Estimation history** — criteria breakdown for calibration
-- **Days off** — PTO and holidays affecting capacity calculations
-
-Tables are auto-created on first run — no migration step needed.
 
 ### Dual API: REST v1 + GraphQL v2
 
@@ -82,7 +122,27 @@ The Aha REST API v1 handles most data (releases, features, users, products). How
 | REST v1 | Releases, features, users, products, auth | Mature, well-documented, fine for non-iteration data |
 | GraphQL v2 | Iterations + their features | Only way to get iteration→feature linkage; 87% faster for sprint planning |
 
-The sprint list page defaults to iterations (Aha Develop sprints) with a toggle to show releases.
+### Local Database
+
+SQLite stores data that doesn't belong in Aha:
+- **Standup entries** — daily updates per team member
+- **Blockers & action items** — tracked across standups with aging and resolution
+- **Sprint snapshots** — captured at sprint end for historical metrics
+- **Estimation history** — criteria breakdown for calibration
+- **Days off** — PTO and holidays affecting capacity calculations
+- **Settings** — per-instance preferences (e.g. points-per-day overrides)
+
+Tables are auto-created on first run — no migration step needed.
+
+### Config System
+
+Org-specific behavior is externalized into `aha-smt.config.ts` at the project root. The `defineConfig()` helper provides type checking and IDE autocomplete. At runtime, `getConfig()` deep-merges the user config over `DEFAULT_CONFIG` and caches the result as a singleton.
+
+The config drives:
+- **Point extraction** — `points.ts` iterates the configured `source` array instead of hardcoded `original_estimate ?? score`
+- **Estimation UI** — point picker and suggested-points matrix read from config
+- **Sprint mode** — sprint list page shows iterations, releases, or both with a toggle
+- **Workflow completion** — GraphQL feature mapping uses configured `completeMeanings`
 
 ## Aha! API Latency & Limitations
 
@@ -121,23 +181,15 @@ The Aha! APIs are the primary bottleneck for responsiveness. We measured product
 | Sprint planning — GraphQL (single iteration query) | ~220ms | **87% faster** than REST; 1 call |
 | Estimation flow (releases → unestimated features) | ~1.6s | REST, client-side filter |
 
-#### Field selection impact (REST, 200 features)
-
-| Fields | Avg Latency |
-|---|---|
-| Full (incl. description) | ~1.8s |
-| Lean (no description) | ~1.9s |
-| Minimal (id, name, estimate) | ~1.1s |
-
 ### Hard limits we can't change
 
 - **REST v1 can't filter features by iteration.** The `?iteration=` parameter is silently ignored. Features have no `iteration` field. The only way to get iteration→feature linkage is through the GraphQL v2 API.
-- **No batch/bulk API.** Aha! has no endpoint to fetch multiple resources in one call. Every feature, release, or user list is a separate HTTP request. Composite endpoints on our server help, but each still fans out to individual Aha! calls.
-- **No webhooks or push.** There's no way to subscribe to changes. We must poll or rely on cache TTLs. Stale-while-revalidate masks this for most interactions, but truly real-time sync isn't possible.
-- **~200-400ms base latency per call.** Even minimal payloads (auth check, single feature) take 200-400ms. This is Aha!'s server-side processing time — no client optimization can reduce it.
-- **Sequential pagination (REST).** The API returns a `total_pages` count but doesn't support parallel page fetches. Large releases with 1000+ features will always be slow on first load.
-- **`/project_teams` unavailable on some plans.** The teams endpoint returns 404 on certain Aha! subscription tiers. Team data must be inferred from product users instead.
-- **Field filtering helps but has limits.** Using `?fields=` cuts response size 30-60%, but the API still processes the full query server-side. The savings are in transfer time, not query time.
+- **No batch/bulk API.** Aha! has no endpoint to fetch multiple resources in one call. Every feature, release, or user list is a separate HTTP request.
+- **No webhooks or push.** There's no way to subscribe to changes. We must poll or rely on cache TTLs.
+- **~200-400ms base latency per call.** Even minimal payloads take 200-400ms. This is Aha!'s server-side processing time.
+- **Sequential pagination (REST).** Large releases with 1000+ features will always be slow on first load.
+- **`/project_teams` unavailable on some plans.** The teams endpoint returns 404 on certain Aha! subscription tiers.
+- **Field filtering helps but has limits.** Using `?fields=` cuts response size 30-60%, but the API still processes the full query server-side.
 
 ### What we do about it
 
@@ -167,21 +219,63 @@ npx tsx benchmarks/live-api-benchmark.ts
 ## Project Structure
 
 ```
+aha-smt.config.ts         # Org config (gitignored — copy from .example.ts)
+aha-smt.config.example.ts # Default config template (committed)
 src/
-├── app/              # Pages and API route handlers
+├── app/                   # Pages and API route handlers
+│   ├── api/
+│   │   ├── aha/           # Aha proxy routes (features, releases, iterations, etc.)
+│   │   ├── standups/      # Standup CRUD
+│   │   ├── sprint-snapshots/ # Snapshot capture and retrieval
+│   │   ├── blockers/      # Blocker tracking
+│   │   ├── action-items/  # Action item tracking
+│   │   ├── days-off/      # PTO and holidays
+│   │   ├── estimation-history/ # Estimation audit trail
+│   │   └── settings/      # App settings
+│   ├── backlog/           # Backlog grooming page
+│   ├── estimate/          # Estimation flow page
+│   ├── sprint/            # Sprint list + detail pages
+│   ├── standup/           # Standup entry + history pages
+│   ├── metrics/           # Velocity and performance page
+│   └── settings/          # Settings page
 ├── components/
-│   ├── ui/           # Base UI components (button, card, table, etc.)
-│   ├── layout/       # App shell, sidebar, header
-│   ├── backlog/      # Backlog table and filters
-│   ├── estimate/     # Estimation queue, criteria scorer, point picker
-│   ├── sprint/       # Capacity bars, allocation table, days off
-│   ├── metrics/      # Velocity chart, KPI cards, comparisons
-│   ├── standup/      # Standup form, timeline, blocker tracker
-│   └── shared/       # Feature badge, avatar, data table, empty state
-├── hooks/            # React Query hooks for all data fetching
-├── lib/              # Aha client, cache, rate limiter, DB, types
-└── providers/        # TanStack Query provider
+│   ├── ui/                # Base UI components (button, card, table, etc.)
+│   ├── layout/            # App shell, sidebar, header
+│   ├── backlog/           # Backlog table and filters
+│   ├── estimate/          # Estimation queue, criteria scorer, point picker
+│   ├── sprint/            # Capacity bars, allocation table, days off
+│   ├── metrics/           # Velocity chart, KPI cards, comparisons
+│   ├── standup/           # Standup form, timeline, blocker tracker
+│   └── shared/            # Feature badge, avatar, data table, empty state
+├── hooks/                 # React Query hooks for all data fetching
+├── lib/
+│   ├── config.ts          # Org config types, defaults, defineConfig(), getConfig()
+│   ├── aha-client.ts      # Aha REST + GraphQL client with caching and rate limiting
+│   ├── aha-cache.ts       # In-memory cache with stale-while-revalidate
+│   ├── aha-rate-limiter.ts # Token bucket rate limiter
+│   ├── points.ts          # Config-driven point extraction and formatting
+│   ├── constants.ts       # Estimation matrix lookup, point scale, nav items
+│   ├── capacity.ts        # Sprint capacity calculations
+│   ├── standup-parsers.ts # Standup message parsing utilities
+│   ├── aha-types.ts       # Aha API type definitions
+│   ├── env.ts             # Environment variable validation (Zod)
+│   └── db/                # Drizzle schema and SQLite setup
+└── providers/             # TanStack Query provider
 ```
+
+## Testing
+
+```bash
+npm test             # Run all 249 tests
+npm run test:watch   # Watch mode for development
+```
+
+Tests use Vitest with `vite-tsconfig-paths` for `@/` alias resolution. Key patterns:
+
+- Singleton modules (`aha-cache`, `aha-rate-limiter`, `env`, `config`) expose `__reset*()` functions for test isolation, called in a global `beforeEach` via `vitest.setup.ts`
+- In-memory SQLite test DB factory at `src/lib/db/__tests__/test-db.ts` for route handler tests
+- Rate limiter tests using fake timers call `__resetRateLimiter()` after `vi.useFakeTimers()`
+- Cache tests pass explicit TTL to `setInCache()` (env mock doesn't reliably intercept relative imports)
 
 ## License
 
