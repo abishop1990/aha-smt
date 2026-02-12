@@ -17,7 +17,6 @@ describe("GET /api/settings", () => {
   });
 
   it("returns empty object initially", async () => {
-    const req = new NextRequest(new URL("http://localhost:3000/api/settings"));
     const res = await GET();
     const data = await res.json();
 

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import type { AhaFeature, AhaRelease, AhaUser, AhaWorkflowStatus } from "@/lib/aha-types";
+import type { AhaFeature, AhaRelease } from "@/lib/aha-types";
 
 /**
  * Sets process.env with test defaults for environment variables

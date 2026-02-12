@@ -33,7 +33,6 @@ describe("GET /api/sprint-snapshots", () => {
   });
 
   it("returns empty snapshots array initially", async () => {
-    const req = new NextRequest(new URL("http://localhost:3000/api/sprint-snapshots"));
     const res = await GET();
     const data = await res.json();
 
@@ -375,7 +374,6 @@ describe("POST /api/sprint-snapshots", () => {
     });
 
     const res = await POST(req);
-    const data = await res.json();
 
     expect(res.status).toBe(201);
 
