@@ -41,8 +41,6 @@ function StandupPageContent() {
   );
 }
 
-}
-
 export default function StandupPage() {
   return (
     <ErrorBoundary>

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "node",
+    environment: "happy-dom",
     include: ["src/**/*.test.ts"],
     exclude: ["node_modules", ".next", "data"],
     mockReset: true,

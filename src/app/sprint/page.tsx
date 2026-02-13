@@ -210,8 +210,6 @@ function SprintListPageContent() {
   );
 }
 
-}
-
 export default function SprintListPage() {
   return (
     <ErrorBoundary>

@@ -92,20 +92,22 @@ export function useSprintMetrics(sourceType: "release" | "iteration", limit = 10
           .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
           .slice(0, limit);
 
-        const results: SprintMetrics[] = [];
-        for (const iteration of sorted) {
-          const features = await fetchFeaturesForIteration(iteration.reference_num);
-          results.push(
-            calculateMetrics(
-              features,
-              iteration.id,
-              iteration.name,
-              iteration.start_date,
-              iteration.end_date,
-              "iteration"
-            )
-          );
-        }
+        // Fetch all features in parallel to avoid N+1 query problem
+        const allFeatures = await Promise.all(
+          sorted.map((iteration) => fetchFeaturesForIteration(iteration.reference_num))
+        );
+
+        const results = sorted.map((iteration, index) =>
+          calculateMetrics(
+            allFeatures[index],
+            iteration.id,
+            iteration.name,
+            iteration.start_date,
+            iteration.end_date,
+            "iteration"
+          )
+        );
+
         // Return in chronological order (oldest first for display)
         return results.reverse();
       } else {
@@ -117,20 +119,22 @@ export function useSprintMetrics(sourceType: "release" | "iteration", limit = 10
           .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
           .slice(0, limit);
 
-        const results: SprintMetrics[] = [];
-        for (const release of sorted) {
-          const features = await fetchFeaturesForRelease(release.id);
-          results.push(
-            calculateMetrics(
-              features,
-              release.id,
-              release.name,
-              release.start_date,
-              release.release_date,
-              "release"
-            )
-          );
-        }
+        // Fetch all features in parallel to avoid N+1 query problem
+        const allFeatures = await Promise.all(
+          sorted.map((release) => fetchFeaturesForRelease(release.id))
+        );
+
+        const results = sorted.map((release, index) =>
+          calculateMetrics(
+            allFeatures[index],
+            release.id,
+            release.name,
+            release.start_date,
+            release.release_date,
+            "release"
+          )
+        );
+
         // Return in chronological order (oldest first for display)
         return results.reverse();
       }

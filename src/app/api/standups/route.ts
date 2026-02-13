@@ -1,7 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { standupEntries, blockersTable, actionItemsTable } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+const createStandupSchema = z.object({
+  userId: z.string().min(1),
+  userName: z.string().min(1),
+  standupDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  doneSinceLastStandup: z.string().optional(),
+  workingOnNow: z.string().optional(),
+  blockers: z.string().optional(),
+  actionItems: z.string().optional(),
+  featureRefs: z.array(z.string()).optional(),
+  blockerItems: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        featureRef: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
+  actionItemEntries: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        assigneeUserId: z.string().nullable().optional(),
+      })
+    )
+    .optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,29 +65,39 @@ export async function POST(request: NextRequest) {
     const db = getDb();
     const body = await request.json();
 
+    // Validate request body
+    const validation = createStandupSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const data = validation.data;
     const now = new Date().toISOString();
     const entry = await db
       .insert(standupEntries)
       .values({
-        userId: body.userId,
-        userName: body.userName,
-        standupDate: body.standupDate,
-        doneSinceLastStandup: body.doneSinceLastStandup || "",
-        workingOnNow: body.workingOnNow || "",
-        blockers: body.blockers || "",
-        actionItems: body.actionItems || "",
-        featureRefs: JSON.stringify(body.featureRefs || []),
+        userId: data.userId,
+        userName: data.userName,
+        standupDate: data.standupDate,
+        doneSinceLastStandup: data.doneSinceLastStandup || "",
+        workingOnNow: data.workingOnNow || "",
+        blockers: data.blockers || "",
+        actionItems: data.actionItems || "",
+        featureRefs: JSON.stringify(data.featureRefs || []),
         createdAt: now,
         updatedAt: now,
       })
       .returning();
 
     // Create blocker records if any
-    if (body.blockerItems && Array.isArray(body.blockerItems)) {
-      for (const blocker of body.blockerItems) {
+    if (data.blockerItems && Array.isArray(data.blockerItems)) {
+      for (const blocker of data.blockerItems) {
         await db.insert(blockersTable).values({
           standupEntryId: entry[0].id,
-          userId: body.userId,
+          userId: data.userId,
           description: blocker.description,
           featureRef: blocker.featureRef || null,
           status: "open",
@@ -69,11 +107,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create action item records if any
-    if (body.actionItemEntries && Array.isArray(body.actionItemEntries)) {
-      for (const item of body.actionItemEntries) {
+    if (data.actionItemEntries && Array.isArray(data.actionItemEntries)) {
+      for (const item of data.actionItemEntries) {
         await db.insert(actionItemsTable).values({
           standupEntryId: entry[0].id,
-          userId: body.userId,
+          userId: data.userId,
           assigneeUserId: item.assigneeUserId || null,
           description: item.description,
           completed: false,
