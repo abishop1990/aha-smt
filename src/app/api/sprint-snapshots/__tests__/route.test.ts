@@ -22,6 +22,27 @@ vi.mock("@/lib/env", () => ({
   getEnv: vi.fn(() => ({ AHA_TEAM_PRODUCT_ID: "team-1" })),
 }));
 
+vi.mock("@/lib/config", () => ({
+  getConfig: vi.fn(() => ({
+    points: {
+      source: ["original_estimate", "score"],
+      scale: [1, 2, 3, 5, 8, 13, 21],
+      defaultPerDay: 1,
+    },
+    sprints: {
+      mode: "both",
+      defaultView: "iterations",
+    },
+    workflow: {
+      completeMeanings: ["DONE", "SHIPPED"],
+    },
+    estimation: {
+      matrix: {},
+    },
+  })),
+  __resetConfig: vi.fn(),
+}));
+
 import { GET, POST } from "../route";
 import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
 import { getEnv } from "@/lib/env";
