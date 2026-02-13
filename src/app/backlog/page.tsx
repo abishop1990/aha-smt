@@ -11,8 +11,9 @@ export default function BacklogPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
 
-  // Auto-select first release
-  const effectiveReleaseId = releaseId ?? releasesData?.releases?.[0]?.id ?? null;
+  // Auto-select parking lot (or first release if no parking lot)
+  const defaultRelease = releasesData?.releases.find((r) => r.parking_lot) ?? releasesData?.releases?.[0];
+  const effectiveReleaseId = releaseId ?? defaultRelease?.id ?? null;
 
   return (
     <div className="space-y-6">

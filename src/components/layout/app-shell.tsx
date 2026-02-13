@@ -2,6 +2,7 @@
 
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { Header } from "@/components/layout/header";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { CacheWarmer } from "@/components/shared/cache-warmer";
 
 export interface AppShellProps {
@@ -11,6 +12,7 @@ export interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-background">
+      <NavigationProgress />
       <SidebarNav />
 
       <div className="ml-60 flex min-h-screen flex-col">

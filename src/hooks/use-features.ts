@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { AhaFeature } from "@/lib/aha-types";
 
 interface FeaturesResponse {
@@ -60,11 +61,11 @@ export function useUpdateFeatureScore() {
       // Optimistically update the feature in all feature list queries
       queryClient.setQueriesData(
         { queryKey: ["features"] },
-        (old: any) => {
+        (old: FeaturesResponse | undefined) => {
           if (!old?.features) return old;
           return {
             ...old,
-            features: old.features.map((f: any) =>
+            features: old.features.map((f) =>
               f.id === featureId ? { ...f, score, work_units: score } : f
             ),
           };
@@ -72,14 +73,14 @@ export function useUpdateFeatureScore() {
       );
 
       // Optimistically update the single feature query
-      queryClient.setQueryData(["feature", featureId], (old: any) => {
+      queryClient.setQueryData(["feature", featureId], (old: AhaFeature | undefined) => {
         if (!old) return old;
         return { ...old, score, work_units: score };
       });
 
       return { previousFeatures, previousFeature, featureId };
     },
-    onError: (_err, _vars, context) => {
+    onError: (error, _vars, context) => {
       // Rollback on error
       if (context?.previousFeatures) {
         for (const [key, data] of context.previousFeatures) {
@@ -92,6 +93,12 @@ export function useUpdateFeatureScore() {
           context.previousFeature
         );
       }
+
+      // Show error toast
+      const message = error instanceof Error ? error.message : "Failed to update score";
+      toast.error("Score update failed", {
+        description: `${message}. Changes have been reverted.`,
+      });
     },
     onSettled: (_data, _error, { featureId }) => {
       // Refetch to ensure server state is synced (but UI already updated)
@@ -132,11 +139,11 @@ export function useUpdateFeatureEstimate() {
       const previousFeature = queryClient.getQueryData(["feature", featureId]);
 
       // Optimistically update feature lists
-      const updateFn = (old: any) => {
+      const updateFn = (old: FeaturesResponse | undefined) => {
         if (!old?.features) return old;
         return {
           ...old,
-          features: old.features.map((f: any) =>
+          features: old.features.map((f) =>
             f.id === featureId ? { ...f, [field]: points } : f
           ),
         };
@@ -144,14 +151,14 @@ export function useUpdateFeatureEstimate() {
       queryClient.setQueriesData({ queryKey: ["features"] }, updateFn);
       queryClient.setQueriesData({ queryKey: ["iteration-features"] }, updateFn);
 
-      queryClient.setQueryData(["feature", featureId], (old: any) => {
+      queryClient.setQueryData(["feature", featureId], (old: AhaFeature | undefined) => {
         if (!old) return old;
         return { ...old, [field]: points };
       });
 
       return { previousFeatures, previousIterationFeatures, previousFeature, featureId };
     },
-    onError: (_err, _vars, context) => {
+    onError: (error, vars, context) => {
       if (context?.previousFeatures) {
         for (const [key, data] of context.previousFeatures) {
           queryClient.setQueryData(key, data);
@@ -165,6 +172,12 @@ export function useUpdateFeatureEstimate() {
       if (context?.previousFeature) {
         queryClient.setQueryData(["feature", context.featureId], context.previousFeature);
       }
+
+      // Show error toast
+      const message = error instanceof Error ? error.message : "Failed to update estimate";
+      toast.error("Estimate update failed", {
+        description: `${message}. Changes have been reverted.`,
+      });
     },
     onSettled: (_data, _error, { featureId }) => {
       queryClient.invalidateQueries({ queryKey: ["features"] });

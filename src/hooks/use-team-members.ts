@@ -31,7 +31,9 @@ export function useTeamMembers() {
 
     // Fall back to product users
     if (users.data?.users) {
-      return users.data.users.map((u) => ({ id: u.id, name: u.name }));
+      return users.data.users
+        .filter((u) => u.name) // Filter out users without names
+        .map((u) => ({ id: u.id, name: u.name }));
     }
 
     return [];

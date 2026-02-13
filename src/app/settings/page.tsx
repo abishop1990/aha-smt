@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { getConfig } from "@/lib/config";
+import { useTeamMembers } from "@/hooks/use-team-members";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -63,11 +64,33 @@ export default function SettingsPage() {
     String(getConfig().points.defaultPerDay)
   );
 
+  const { data: teamMembers } = useTeamMembers();
+  const [selectedStandupUserIds, setSelectedStandupUserIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (settings?.defaultPointsPerDay) {
       setDefaultPointsPerDay(settings.defaultPointsPerDay);
     }
-  }, [settings]);
+    if (settings?.standup_user_ids) {
+      try {
+        const ids = JSON.parse(settings.standup_user_ids);
+        if (Array.isArray(ids)) {
+          setSelectedStandupUserIds(ids);
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
+    } else if (teamMembers) {
+      // Default to all team members if not configured
+      setSelectedStandupUserIds(teamMembers.map((m) => m.id));
+    }
+  }, [settings, teamMembers]);
+
+  const toggleStandupUser = (userId: string, checked: boolean) => {
+    setSelectedStandupUserIds((prev) =>
+      checked ? [...prev, userId] : prev.filter((id) => id !== userId)
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -150,6 +173,75 @@ export default function SettingsPage() {
           >
             {saveSettings.isPending ? "Saving..." : "Save"}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Standup Team Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Standup Team Members</CardTitle>
+          <CardDescription>
+            Select which team members should appear in standup views
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {teamMembers && teamMembers.length > 0 ? (
+            <>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {teamMembers.map((member) => (
+                  <div key={member.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`standup-${member.id}`}
+                      checked={selectedStandupUserIds.includes(member.id)}
+                      onCheckedChange={(checked) =>
+                        toggleStandupUser(member.id, !!checked)
+                      }
+                    />
+                    <label
+                      htmlFor={`standup-${member.id}`}
+                      className="text-sm text-text-primary cursor-pointer"
+                    >
+                      {member.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setSelectedStandupUserIds(teamMembers.map((m) => m.id))
+                  }
+                >
+                  Select All
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedStandupUserIds([])}
+                >
+                  Clear All
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    saveSettings.mutate({
+                      standup_user_ids: JSON.stringify(selectedStandupUserIds),
+                    })
+                  }
+                  disabled={saveSettings.isPending}
+                >
+                  {saveSettings.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+              <p className="text-xs text-text-muted">
+                {selectedStandupUserIds.length} of {teamMembers.length} members selected
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-text-muted">Loading team members...</p>
+          )}
         </CardContent>
       </Card>
 

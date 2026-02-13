@@ -9,22 +9,23 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { SprintSnapshot } from "@/hooks/use-sprint-snapshots";
+import type { SprintMetrics } from "@/hooks/use-sprint-metrics";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { formatPoints } from "@/lib/points";
 
 interface VelocityChartProps {
-  snapshots: SprintSnapshot[];
+  snapshots: SprintMetrics[];
 }
 
 export function VelocityChart({ snapshots }: VelocityChartProps) {
   const data = [...snapshots]
     .sort((a, b) => {
-      const dateA = a.startDate ?? a.endDate ?? a.capturedAt;
-      const dateB = b.startDate ?? b.endDate ?? b.capturedAt;
+      const dateA = a.startDate ?? a.endDate ?? "";
+      const dateB = b.startDate ?? b.endDate ?? "";
       return dateA.localeCompare(dateB);
     })
     .map((s) => ({
-      name: s.releaseName,
+      name: s.name,
       planned: s.totalPointsPlanned,
       completed: s.totalPointsCompleted,
     }));
@@ -68,6 +69,7 @@ export function VelocityChart({ snapshots }: VelocityChartProps) {
                   color: "var(--color-text-primary)",
                 }}
                 labelStyle={{ color: "var(--color-text-primary)" }}
+                formatter={(value: number) => formatPoints(value)}
               />
               <Line
                 type="monotone"

@@ -1,8 +1,9 @@
-import type { SprintSnapshot } from "@/hooks/use-sprint-snapshots";
+import type { SprintMetrics } from "@/hooks/use-sprint-metrics";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { formatPoints } from "@/lib/points";
 
 interface MetricSummaryCardsProps {
-  snapshots: SprintSnapshot[];
+  snapshots: SprintMetrics[];
 }
 
 function avg(values: number[]): number {
@@ -19,10 +20,14 @@ export function MetricSummaryCards({ snapshots }: MetricSummaryCardsProps) {
       .map((s) => (s.totalPointsCompleted / s.totalPointsPlanned) * 100)
   );
 
+  // Carryover is not tracked in dynamic metrics, so we calculate it as planned - completed
   const carryoverRate = avg(
     snapshots
       .filter((s) => s.totalPointsPlanned > 0)
-      .map((s) => (s.carryoverPoints / s.totalPointsPlanned) * 100)
+      .map((s) => {
+        const carryover = Math.max(0, s.totalPointsPlanned - s.totalPointsCompleted);
+        return (carryover / s.totalPointsPlanned) * 100;
+      })
   );
 
   const completionRate = avg(
@@ -41,7 +46,7 @@ export function MetricSummaryCards({ snapshots }: MetricSummaryCardsProps) {
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold text-text-primary">
-            {avgVelocity.toFixed(1)}
+            {formatPoints(avgVelocity)}
           </p>
           <p className="text-xs text-text-muted">points per sprint</p>
         </CardContent>

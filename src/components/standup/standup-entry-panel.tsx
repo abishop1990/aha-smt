@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { parseBlockers, parseActionItems } from "@/lib/standup-parsers";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useTeamMembers } from "@/hooks/use-team-members";
+import { useStandupMembers } from "@/hooks/use-standup-members";
 import { useStandups, useCreateStandup } from "@/hooks/use-standups";
 import { StandupForm, type StandupFormData } from "@/components/standup/standup-form";
 import { StandupMemberList } from "@/components/standup/standup-member-list";
@@ -23,7 +23,7 @@ interface StandupEntryPanelProps {
 
 export function StandupEntryPanel({ date }: StandupEntryPanelProps) {
   const { data: currentUser } = useCurrentUser();
-  const { data: teamMembers, isLoading: membersLoading } = useTeamMembers();
+  const { data: teamMembers, isLoading: membersLoading } = useStandupMembers();
   const { data: standupData } = useStandups(date);
   const createStandup = useCreateStandup();
 

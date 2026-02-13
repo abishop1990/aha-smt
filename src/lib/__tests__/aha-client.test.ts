@@ -691,7 +691,7 @@ describe("aha-client", () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
-          project_users: mockUsers,
+          project_users: mockUsers.map((u) => ({ user: u })),
           pagination: { total_pages: 1, current_page: 1 },
         }),
       });
@@ -709,7 +709,7 @@ describe("aha-client", () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
-          project_users: [{ id: "u-1", name: "Alice", email: "a@test.com" }],
+          project_users: [{ user: { id: "u-1", name: "Alice", email: "a@test.com" } }],
           pagination: { total_pages: 1, current_page: 1 },
         }),
       });

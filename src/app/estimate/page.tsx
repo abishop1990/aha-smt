@@ -12,13 +12,16 @@ import { PointPicker } from "@/components/estimate/point-picker";
 import { EstimationContextPanel } from "@/components/estimate/estimation-context-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { getSuggestedPoints, type EstimationCriteria } from "@/lib/constants";
 import { Calculator } from "lucide-react";
 
-export default function EstimatePage() {
+function EstimatePageContent() {
   const searchParams = useSearchParams();
   const { data: releasesData } = useReleases();
-  const releaseId = releasesData?.releases?.[0]?.id ?? null;
+  // Default to parking lot (where unestimated features typically live)
+  const defaultRelease = releasesData?.releases.find((r) => r.parking_lot) ?? releasesData?.releases?.[0];
+  const releaseId = defaultRelease?.id ?? null;
   const { data: featuresData, isLoading } = useFeatures(releaseId, {
     unestimatedOnly: true,
   });
@@ -90,7 +93,17 @@ export default function EstimatePage() {
           setCurrentIndex((i) => i + 1);
         }
       } catch (error) {
-        toast.error(`Failed to estimate ${currentFeature.reference_num}`);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        toast.error(
+          `Failed to save estimate for ${currentFeature.reference_num}`,
+          {
+            description: errorMessage,
+            action: {
+              label: "Retry",
+              onClick: () => handleSubmit(points),
+            },
+          }
+        );
         console.error("Estimation error:", error);
       }
     },
@@ -187,5 +200,13 @@ export default function EstimatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function EstimatePage() {
+  return (
+    <ErrorBoundary>
+      <EstimatePageContent />
+    </ErrorBoundary>
   );
 }

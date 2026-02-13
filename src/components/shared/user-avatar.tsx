@@ -1,7 +1,8 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface UserAvatarProps {
-  name: string;
+  name?: string;
   avatarUrl?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -13,23 +14,28 @@ const sizeClasses = {
   lg: "h-10 w-10 text-base",
 };
 
-function getInitials(name: string): string {
+function getInitials(name: string | undefined): string {
+  if (!name || name.trim() === "") return "?";
   return name
     .split(" ")
     .map((n) => n[0])
+    .filter(Boolean)
     .join("")
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || "?";
 }
 
 export function UserAvatar({ name, avatarUrl, size = "md", className }: UserAvatarProps) {
+  const displayName = name || "Unknown";
+
   if (avatarUrl) {
     return (
-      <img
+      <Image
         src={avatarUrl}
-        alt={name}
+        alt={displayName}
+        width={40}
+        height={40}
         className={cn("rounded-full object-cover", sizeClasses[size], className)}
-        loading="lazy"
       />
     );
   }
@@ -41,7 +47,7 @@ export function UserAvatar({ name, avatarUrl, size = "md", className }: UserAvat
         sizeClasses[size],
         className
       )}
-      title={name}
+      title={displayName}
     >
       {getInitials(name)}
     </div>

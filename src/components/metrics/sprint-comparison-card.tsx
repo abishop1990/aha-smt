@@ -1,11 +1,12 @@
 "use client";
 
-import type { SprintSnapshot } from "@/hooks/use-sprint-snapshots";
+import type { SprintMetrics } from "@/hooks/use-sprint-metrics";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatPoints } from "@/lib/points";
 
 interface SprintComparisonCardProps {
-  snapshots: SprintSnapshot[];
+  snapshots: SprintMetrics[];
 }
 
 interface SprintSummary {
@@ -18,19 +19,21 @@ interface SprintSummary {
   completionRate: number;
 }
 
-function toSummary(snapshot: SprintSnapshot): SprintSummary {
+function toSummary(snapshot: SprintMetrics): SprintSummary {
   const completionRate =
     snapshot.totalFeaturesPlanned > 0
       ? (snapshot.totalFeaturesCompleted / snapshot.totalFeaturesPlanned) * 100
       : 0;
 
+  const carryover = Math.max(0, snapshot.totalPointsPlanned - snapshot.totalPointsCompleted);
+
   return {
-    name: snapshot.releaseName,
+    name: snapshot.name,
     planned: snapshot.totalPointsPlanned,
     completed: snapshot.totalPointsCompleted,
     features: snapshot.totalFeaturesPlanned,
     featuresCompleted: snapshot.totalFeaturesCompleted,
-    carryover: snapshot.carryoverPoints,
+    carryover,
     completionRate,
   };
 }
@@ -59,7 +62,7 @@ function DeltaIndicator({
       )}
     >
       {delta > 0 ? "+" : ""}
-      {suffix ? `${delta.toFixed(1)}${suffix}` : delta}
+      {suffix ? `${delta.toFixed(1)}${suffix}` : formatPoints(Math.abs(delta))}
     </span>
   );
 }
@@ -83,15 +86,17 @@ function StatRow({
     <div className="flex items-center justify-between text-sm">
       <span className="text-text-secondary">{label}</span>
       <div className="flex items-center gap-4">
-        <span className="text-text-muted w-16 text-right">{fmt(previous)}</span>
-        <span className="text-text-primary w-16 text-right font-medium">
-          {fmt(current)}
+        <span className="text-text-muted w-20 text-right tabular-nums">{fmt(previous)}</span>
+        <div className="flex items-center justify-end w-24">
+          <span className="text-text-primary text-right font-medium tabular-nums">
+            {fmt(current)}
+          </span>
           <DeltaIndicator
             current={current}
             previous={previous}
             higherIsBetter={higherIsBetter}
           />
-        </span>
+        </div>
       </div>
     </div>
   );
@@ -116,8 +121,8 @@ export function SprintComparisonCard({ snapshots }: SprintComparisonCardProps) {
   }
 
   const sorted = [...snapshots].sort((a, b) => {
-    const dateA = a.startDate ?? a.endDate ?? a.capturedAt;
-    const dateB = b.startDate ?? b.endDate ?? b.capturedAt;
+    const dateA = a.startDate ?? a.endDate ?? "";
+    const dateB = b.startDate ?? b.endDate ?? "";
     return dateA.localeCompare(dateB);
   });
   const previous = toSummary(sorted[sorted.length - 2]);
@@ -146,12 +151,14 @@ export function SprintComparisonCard({ snapshots }: SprintComparisonCardProps) {
             current={current.planned}
             previous={previous.planned}
             higherIsBetter={true}
+            format={formatPoints}
           />
           <StatRow
             label="Completed Points"
             current={current.completed}
             previous={previous.completed}
             higherIsBetter={true}
+            format={formatPoints}
           />
           <StatRow
             label="Features Planned"
@@ -170,6 +177,7 @@ export function SprintComparisonCard({ snapshots }: SprintComparisonCardProps) {
             current={current.carryover}
             previous={previous.carryover}
             higherIsBetter={false}
+            format={formatPoints}
           />
           <StatRow
             label="Completion Rate"

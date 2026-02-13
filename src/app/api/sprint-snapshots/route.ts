@@ -127,33 +127,41 @@ export async function POST(request: NextRequest) {
       assignee: f.assigned_to_user?.name,
     }));
 
-    // Replace existing snapshot for the same sprint
-    await db
-      .delete(sprintSnapshots)
-      .where(eq(sprintSnapshots.releaseRefNum, releaseRefNum));
+    // Replace existing snapshot for the same sprint atomically
+    // Use delete + insert pattern wrapped in explicit transaction for SQLite
+    const snapshot = db.transaction((tx) => {
+      // Delete existing snapshot
+      tx.delete(sprintSnapshots)
+        .where(eq(sprintSnapshots.releaseRefNum, releaseRefNum))
+        .run();
 
-    const snapshot = await db
-      .insert(sprintSnapshots)
-      .values({
-        releaseId: snapshotReleaseId,
-        releaseRefNum,
-        releaseName,
-        startDate,
-        endDate,
-        totalPointsPlanned,
-        totalPointsCompleted,
-        totalFeaturesPlanned: features.length,
-        totalFeaturesCompleted: completedFeatures.length,
-        carryoverPoints,
-        memberMetrics: JSON.stringify(memberMetrics),
-        featureSnapshot: JSON.stringify(featureSnapshot),
-        sourceType,
-        pointSource,
-        capturedAt: new Date().toISOString(),
-      })
-      .returning();
+      // Insert new snapshot
+      const result = tx
+        .insert(sprintSnapshots)
+        .values({
+          releaseId: snapshotReleaseId,
+          releaseRefNum,
+          releaseName,
+          startDate,
+          endDate,
+          totalPointsPlanned,
+          totalPointsCompleted,
+          totalFeaturesPlanned: features.length,
+          totalFeaturesCompleted: completedFeatures.length,
+          carryoverPoints,
+          memberMetrics: JSON.stringify(memberMetrics),
+          featureSnapshot: JSON.stringify(featureSnapshot),
+          sourceType,
+          pointSource,
+          capturedAt: new Date().toISOString(),
+        })
+        .returning()
+        .get();
 
-    return NextResponse.json(snapshot[0], { status: 201 });
+      return result;
+    });
+
+    return NextResponse.json(snapshot, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to capture snapshot";
     return NextResponse.json({ error: message }, { status: 500 });

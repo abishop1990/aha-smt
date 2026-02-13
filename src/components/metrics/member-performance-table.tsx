@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import type { SprintSnapshot } from "@/hooks/use-sprint-snapshots";
+import type { SprintMetrics } from "@/hooks/use-sprint-metrics";
+import { useUsers } from "@/hooks/use-users";
 import {
   Table,
   TableBody,
@@ -12,9 +13,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { formatPoints } from "@/lib/points";
 
 interface MemberPerformanceTableProps {
-  snapshots: SprintSnapshot[];
+  snapshots: SprintMetrics[];
 }
 
 interface MemberSprintMetric {
@@ -22,42 +24,35 @@ interface MemberSprintMetric {
   completed: number;
 }
 
-interface ParsedMemberMetrics {
-  [memberId: string]: {
-    name: string;
-    planned: number;
-    completed: number;
-  };
-}
-
 export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProps) {
+  const { data: usersData } = useUsers();
+  const activeUserIds = useMemo(
+    () => new Set(usersData?.users.map((u) => u.id) ?? []),
+    [usersData]
+  );
+
   const { memberNames, sprintColumns, memberData, aggregates } = useMemo(() => {
     const namesMap = new Map<string, string>();
-    const sprintCols = snapshots.map((s) => ({
+
+    // Sort snapshots chronologically by start date, then end date
+    const sortedSnapshots = [...snapshots].sort((a, b) => {
+      const dateA = a.startDate ?? a.endDate ?? "";
+      const dateB = b.startDate ?? b.endDate ?? "";
+      return dateA.localeCompare(dateB);
+    });
+
+    const sprintCols = sortedSnapshots.map((s) => ({
       id: s.id,
-      name: s.releaseName,
+      name: s.name,
     }));
 
     // memberId -> sprintId -> { planned, completed }
-    const dataMap = new Map<string, Map<number, MemberSprintMetric>>();
+    const dataMap = new Map<string, Map<string, MemberSprintMetric>>();
 
-    for (const snapshot of snapshots) {
-      let parsed: ParsedMemberMetrics = {};
-      try {
-        const raw = JSON.parse(snapshot.memberMetrics);
-        // Handle both array (legacy) and object (current) formats
-        if (Array.isArray(raw)) {
-          for (const entry of raw) {
-            parsed[entry.userId] = { name: entry.name, planned: entry.planned, completed: entry.completed };
-          }
-        } else {
-          parsed = raw as ParsedMemberMetrics;
-        }
-      } catch {
-        continue;
-      }
+    for (const snapshot of sortedSnapshots) {
+      const memberMetrics = snapshot.memberMetrics;
 
-      for (const [memberId, metrics] of Object.entries(parsed)) {
+      for (const [memberId, metrics] of Object.entries(memberMetrics)) {
         if (!namesMap.has(memberId)) {
           namesMap.set(memberId, metrics.name);
         }
@@ -91,9 +86,12 @@ export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProp
     };
   }, [snapshots]);
 
-  const memberIds = Array.from(memberNames.keys()).sort((a, b) =>
-    (memberNames.get(a) ?? "").localeCompare(memberNames.get(b) ?? "")
-  );
+  // Filter to only show currently active users
+  const memberIds = Array.from(memberNames.keys())
+    .filter((memberId) => activeUserIds.has(memberId))
+    .sort((a, b) =>
+      (memberNames.get(a) ?? "").localeCompare(memberNames.get(b) ?? "")
+    );
 
   if (snapshots.length === 0 || memberIds.length === 0) {
     return (
@@ -145,9 +143,9 @@ export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProp
                         {metric ? (
                           <span className="text-text-secondary">
                             <span className="text-text-primary">
-                              {metric.completed}
+                              {formatPoints(metric.completed)}
                             </span>
-                            /{metric.planned}
+                            /{formatPoints(metric.planned)}
                           </span>
                         ) : (
                           <span className="text-text-muted">&mdash;</span>
@@ -157,10 +155,10 @@ export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProp
                   })}
                   <TableCell className="text-center font-medium">
                     <span className="text-text-primary">
-                      {agg?.totalCompleted ?? 0}
+                      {formatPoints(agg?.totalCompleted ?? 0)}
                     </span>
                     <span className="text-text-muted">
-                      /{agg?.totalPlanned ?? 0}
+                      /{formatPoints(agg?.totalPlanned ?? 0)}
                     </span>
                   </TableCell>
                 </TableRow>
@@ -171,30 +169,43 @@ export function MemberPerformanceTable({ snapshots }: MemberPerformanceTableProp
             <TableRow>
               <TableCell className="font-semibold">Team Total</TableCell>
               {sprintColumns.map((col) => {
-                const snapshot = snapshots.find((s) => s.id === col.id);
+                // Calculate totals from only active members
+                let totalCompleted = 0;
+                let totalPlanned = 0;
+                for (const memberId of memberIds) {
+                  const metric = memberData.get(memberId)?.get(col.id);
+                  if (metric) {
+                    totalCompleted += metric.completed;
+                    totalPlanned += metric.planned;
+                  }
+                }
                 return (
                   <TableCell key={col.id} className="text-center font-medium">
-                    {snapshot ? (
-                      <>
-                        <span className="text-text-primary">
-                          {snapshot.totalPointsCompleted}
-                        </span>
-                        <span className="text-text-muted">
-                          /{snapshot.totalPointsPlanned}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-text-muted">&mdash;</span>
-                    )}
+                    <>
+                      <span className="text-text-primary">
+                        {formatPoints(totalCompleted)}
+                      </span>
+                      <span className="text-text-muted">
+                        /{formatPoints(totalPlanned)}
+                      </span>
+                    </>
                   </TableCell>
                 );
               })}
               <TableCell className="text-center font-semibold">
                 <span className="text-text-primary">
-                  {snapshots.reduce((s, snap) => s + snap.totalPointsCompleted, 0)}
+                  {formatPoints(
+                    Array.from(aggregates.entries())
+                      .filter(([id]) => activeUserIds.has(id))
+                      .reduce((sum, [, agg]) => sum + agg.totalCompleted, 0)
+                  )}
                 </span>
                 <span className="text-text-muted">
-                  /{snapshots.reduce((s, snap) => s + snap.totalPointsPlanned, 0)}
+                  /{formatPoints(
+                    Array.from(aggregates.entries())
+                      .filter(([id]) => activeUserIds.has(id))
+                      .reduce((sum, [, agg]) => sum + agg.totalPlanned, 0)
+                  )}
                 </span>
               </TableCell>
             </TableRow>

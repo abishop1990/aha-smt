@@ -7,6 +7,7 @@ import { usePrefetch } from "@/hooks/use-prefetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { getConfig } from "@/lib/config";
 import type { AhaIteration } from "@/lib/aha-types";
 
-export default function SprintListPage() {
+function SprintListPageContent() {
   const config = getConfig();
   const sprintMode = config.sprints.mode;
   const [view, setView] = useState<"iterations" | "releases">(
@@ -26,11 +27,13 @@ export default function SprintListPage() {
   const { prefetchFeatures, prefetchIterationFeatures } = usePrefetch();
   const releases = useMemo(
     () =>
-      [...(releasesData?.releases ?? [])].sort((a, b) => {
-        const da = a.start_date ?? "";
-        const db = b.start_date ?? "";
-        return db.localeCompare(da);
-      }),
+      [...(releasesData?.releases ?? [])]
+        .filter((r) => !r.parking_lot) // Exclude parking lot from sprint planning
+        .sort((a, b) => {
+          const da = a.start_date ?? "";
+          const db = b.start_date ?? "";
+          return db.localeCompare(da);
+        }),
     [releasesData]
   );
   const iterations = useMemo(
@@ -204,5 +207,15 @@ export default function SprintListPage() {
         )
       )}
     </div>
+  );
+}
+
+}
+
+export default function SprintListPage() {
+  return (
+    <ErrorBoundary>
+      <SprintListPageContent />
+    </ErrorBoundary>
   );
 }

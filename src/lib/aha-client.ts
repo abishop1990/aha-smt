@@ -306,12 +306,14 @@ export async function listTeams(): Promise<AhaTeam[]> {
 }
 
 export async function listUsersInProduct(productId: string): Promise<AhaUser[]> {
-  return ahaFetchAllPages<AhaUser>(
+  const projectUsers = await ahaFetchAllPages<{ user: AhaUser }>(
     `/products/${productId}/users`,
     "project_users",
     { fields: "id,name,email,avatar_url" },
     300
   );
+  // Extract the user object from each project_user wrapper
+  return projectUsers.map((pu) => pu.user).filter((u) => u && u.id);
 }
 
 // --- Iteration API methods (GraphQL v2) ---

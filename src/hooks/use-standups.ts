@@ -2,6 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+interface StandupsResponse {
+  entries: StandupEntry[];
+}
+
 export interface StandupEntry {
   id: number;
   userId: string;
@@ -17,7 +21,7 @@ export interface StandupEntry {
 }
 
 export function useStandups(date?: string, userId?: string) {
-  return useQuery<{ entries: StandupEntry[] }>({
+  return useQuery<StandupsResponse>({
     queryKey: ["standups", date, userId],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -61,10 +65,10 @@ export function useCreateStandup() {
       // Optimistically add the new entry
       queryClient.setQueriesData(
         { queryKey: ["standups"] },
-        (old: any) => {
+        (old: StandupsResponse | undefined) => {
           if (!old?.entries) return old;
-          const optimistic = {
-            id: `temp-${Date.now()}` as any,
+          const optimistic: StandupEntry = {
+            id: crypto.randomUUID() as any, // Server will replace with actual number ID
             ...newStandup,
             featureRefs: Array.isArray(newStandup.featureRefs)
               ? newStandup.featureRefs.join(",")
@@ -118,11 +122,11 @@ export function useUpdateStandup() {
 
       queryClient.setQueriesData(
         { queryKey: ["standups"] },
-        (old: any) => {
+        (old: StandupsResponse | undefined) => {
           if (!old?.entries) return old;
           return {
             ...old,
-            entries: old.entries.map((e: any) =>
+            entries: old.entries.map((e) =>
               e.id === updated.id
                 ? {
                     ...e,
