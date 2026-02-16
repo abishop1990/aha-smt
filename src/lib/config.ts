@@ -25,6 +25,14 @@ export interface AhaSMTConfig {
     /** Scope/Complexity/Unknowns → Points lookup. Keys like "L-M-H". */
     matrix: Record<string, number>;
   };
+  backlog: {
+    /** How to filter features for estimation/backlog views. */
+    filterType: "release" | "team_location" | "epic" | "tag" | "custom_field";
+    /** Field name when using custom_field filter type. */
+    customFieldKey?: string;
+    /** Product ID to use when filterType is team_location (e.g., your Develop product ID). */
+    teamProductId?: string;
+  };
 }
 
 export const DEFAULT_CONFIG: AhaSMTConfig = {
@@ -70,6 +78,9 @@ export const DEFAULT_CONFIG: AhaSMTConfig = {
       "H-H-M": 21,
       "H-H-H": 21,
     },
+  },
+  backlog: {
+    filterType: "release", // Default to releases (backward compatible)
   },
 };
 

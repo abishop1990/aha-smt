@@ -272,6 +272,57 @@ export async function listFeaturesInRelease(
   return features;
 }
 
+/** Fetch ALL features from a product with optional team_location filter. */
+export async function listFeaturesInProduct(
+  productId: string,
+  options?: { teamLocation?: string; unestimatedOnly?: boolean }
+): Promise<AhaFeature[]> {
+  const features = await ahaFetchAllPages<AhaFeature>(
+    `/products/${productId}/features`,
+    "features",
+    {
+      fields:
+        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,team_location,position,created_at",
+    }
+  );
+
+  let filtered = features;
+
+  // Filter by team_location if specified
+  if (options?.teamLocation) {
+    filtered = filtered.filter((f) => f.team_location === options.teamLocation);
+  }
+
+  // Filter unestimated if requested
+  if (options?.unestimatedOnly) {
+    filtered = filtered.filter(isUnestimated);
+  }
+
+  return filtered;
+}
+
+/** Get unique team_location values from all features in a product. */
+export async function listTeamLocations(productId: string): Promise<string[]> {
+  const features = await ahaFetchAllPages<AhaFeature>(
+    `/products/${productId}/features`,
+    "features",
+    {
+      fields: "team_location",
+    }
+  );
+
+  const locations = new Set<string>();
+  features.forEach((feature) => {
+    if (feature.team_location) {
+      locations.add(feature.team_location);
+    }
+  });
+
+  return Array.from(locations).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+}
+
 export async function getFeature(featureId: string): Promise<AhaFeature> {
   const response = await ahaFetch<{ feature: AhaFeature }>(
     `/features/${featureId}`,

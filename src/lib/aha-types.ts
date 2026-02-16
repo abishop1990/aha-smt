@@ -30,6 +30,7 @@ export interface AhaFeature {
   workflow_status?: AhaWorkflowStatus;
   assigned_to_user?: AhaUser | null;
   tags?: string[];
+  team_location?: string;
   position: number;
   created_at: string;
   updated_at?: string;

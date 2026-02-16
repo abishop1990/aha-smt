@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
+import { useFeaturesByLocation } from "@/hooks/use-features-by-location";
+import { useTeamLocations } from "@/hooks/use-team-locations";
+import { useConfig } from "@/hooks/use-config";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
 import { CriteriaScorer } from "@/components/estimate/criteria-scorer";
@@ -18,13 +21,48 @@ import { Calculator } from "lucide-react";
 
 function EstimatePageContent() {
   const searchParams = useSearchParams();
+  const { data: config } = useConfig();
+  const filterType = config?.backlog.filterType ?? "release";
+  const teamProductId = config?.backlog.teamProductId ?? null;
+
   const { data: releasesData } = useReleases();
-  // Default to parking lot (where unestimated features typically live)
-  const defaultRelease = releasesData?.releases.find((r) => r.parking_lot) ?? releasesData?.releases?.[0];
-  const releaseId = defaultRelease?.id ?? null;
-  const { data: featuresData, isLoading } = useFeatures(releaseId, {
-    unestimatedOnly: true,
-  });
+  const { data: teamLocationsData } = useTeamLocations(
+    filterType === "team_location" ? teamProductId : null
+  );
+
+  // Determine which filter to use based on config
+  const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
+  const [selectedTeamLocation, setSelectedTeamLocation] = useState<string | null>(null);
+
+  // Set defaults when data loads
+  useEffect(() => {
+    if (filterType === "release" && releasesData && !selectedReleaseId) {
+      const defaultRelease =
+        releasesData.releases.find((r) => r.parking_lot) ?? releasesData.releases[0];
+      if (defaultRelease) setSelectedReleaseId(defaultRelease.id);
+    } else if (filterType === "team_location" && teamLocationsData && !selectedTeamLocation) {
+      // Default to "Prioritized backlog" if available, otherwise first option
+      const prioritizedBacklog = teamLocationsData.team_locations.find(
+        (loc) => loc === "Prioritized backlog"
+      );
+      setSelectedTeamLocation(prioritizedBacklog ?? teamLocationsData.team_locations[0] ?? null);
+    }
+  }, [filterType, releasesData, teamLocationsData, selectedReleaseId, selectedTeamLocation]);
+
+  // Fetch features based on filter type
+  const releaseFeatures = useFeatures(
+    filterType === "release" ? selectedReleaseId : null,
+    { unestimatedOnly: true }
+  );
+  const locationFeatures = useFeaturesByLocation(
+    filterType === "team_location" ? teamProductId : null,
+    selectedTeamLocation,
+    { unestimatedOnly: true }
+  );
+
+  const { data: featuresData, isLoading } =
+    filterType === "team_location" ? locationFeatures : releaseFeatures;
+
   const updateEstimate = useUpdateFeatureEstimate();
 
   const features = useMemo(() => featuresData?.features ?? [], [featuresData]);
@@ -153,6 +191,47 @@ function EstimatePageContent() {
         </p>
       </div>
 
+      {/* Filter selector based on config */}
+      {filterType === "release" && releasesData && (
+        <div className="flex items-center gap-3">
+          <label htmlFor="release-select" className="text-sm font-medium text-text-primary">
+            Backlog:
+          </label>
+          <select
+            id="release-select"
+            value={selectedReleaseId ?? ""}
+            onChange={(e) => setSelectedReleaseId(e.target.value)}
+            className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {releasesData.releases.map((release) => (
+              <option key={release.id} value={release.id}>
+                {release.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {filterType === "team_location" && teamLocationsData && (
+        <div className="flex items-center gap-3">
+          <label htmlFor="location-select" className="text-sm font-medium text-text-primary">
+            Backlog:
+          </label>
+          <select
+            id="location-select"
+            value={selectedTeamLocation ?? ""}
+            onChange={(e) => setSelectedTeamLocation(e.target.value)}
+            className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {teamLocationsData.team_locations.map((location) => (
+              <option key={location} value={location}>
+                {location}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="grid grid-cols-12 gap-6">
         {/* Queue sidebar */}
         <div className="col-span-3">
@@ -191,11 +270,19 @@ function EstimatePageContent() {
 
         {/* Context panel */}
         <div className="col-span-3">
-          {currentFeature && releaseId && (
+          {currentFeature && filterType === "release" && selectedReleaseId && (
             <EstimationContextPanel
               featureTags={currentFeature.tags ?? []}
-              releaseId={releaseId}
+              releaseId={selectedReleaseId}
             />
+          )}
+          {currentFeature && filterType === "team_location" && (
+            <div className="p-4 bg-surface border border-border rounded-lg">
+              <h3 className="text-sm font-medium text-text-primary mb-2">Context</h3>
+              <p className="text-xs text-text-secondary">
+                Team Location: {selectedTeamLocation}
+              </p>
+            </div>
           )}
         </div>
       </div>
