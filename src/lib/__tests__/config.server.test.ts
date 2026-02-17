@@ -78,6 +78,19 @@ describe("loadConfigFromDb env var parsing", () => {
     expect(config.points.scale).toEqual([1, 2, 3, 5, 8]);
   });
 
+  it("parses POINTS_SCALE with decimal values", async () => {
+    const mockGetEnv = vi.mocked(getEnv);
+    mockGetEnv.mockReturnValue({
+      AHA_DOMAIN: "https://test.aha.io",
+      AHA_API_TOKEN: "test-token",
+      POINTS_SCALE: "0.1,0.5,1,2,3,5,8",
+    } as any);
+
+    const config = await loadConfigFromDb();
+
+    expect(config.points.scale).toEqual([0.1, 0.5, 1, 2, 3, 5, 8]);
+  });
+
   it("parses BACKLOG_EXCLUDE_WORKFLOW_KINDS with whitespace", async () => {
     const mockGetEnv = vi.mocked(getEnv);
     mockGetEnv.mockReturnValue({

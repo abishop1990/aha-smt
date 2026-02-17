@@ -83,7 +83,7 @@ function parseEnvToConfig(env: Env): Partial<AhaSMTConfig> {
     }
     if (env.POINTS_SCALE) {
       config.points.scale = env.POINTS_SCALE
-        .split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n));
+        .split(",").map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n));
     }
     if (env.POINTS_DEFAULT_PER_DAY !== undefined) {
       config.points.defaultPerDay = env.POINTS_DEFAULT_PER_DAY;
