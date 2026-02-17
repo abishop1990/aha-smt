@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useReleases } from "@/hooks/use-releases";
-import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
+import { useFeatures, useFeature, useUpdateFeatureEstimate } from "@/hooks/use-features";
 import { useFeaturesByTag } from "@/hooks/use-features-by-tag";
 import { useFeaturesByEpic } from "@/hooks/use-features-by-epic";
 import { useProductFeatures } from "@/hooks/use-product-features";
@@ -139,6 +139,11 @@ function EstimatePageContent() {
   }, [features, searchParams]);
 
   const currentFeature = features[currentIndex] ?? null;
+
+  // Fetch full detail (description, epic, etc.) for the currently-displayed card
+  const { data: currentFeatureDetail } = useFeature(currentFeature?.id ?? null);
+  const cardFeature = currentFeatureDetail ?? currentFeature;
+
   const estimationMatrix = config?.estimation.matrix;
   const suggestedPoints = getSuggestedPoints(criteria, estimationMatrix);
   const pointScale = config?.points.scale ?? [];
@@ -294,7 +299,7 @@ function EstimatePageContent() {
 
         {/* Main estimation area */}
         <div className="col-span-9 space-y-6">
-          {currentFeature && <EstimationCard feature={currentFeature} />}
+          {cardFeature && <EstimationCard feature={cardFeature} />}
 
 
           <CriteriaScorer criteria={criteria} onChange={setCriteria} />

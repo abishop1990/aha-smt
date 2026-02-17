@@ -31,6 +31,7 @@ export interface AhaFeature {
   description?: { body?: string };
   requirements?: Array<{ id: string; name: string; body?: string }>;
   release?: { id: string; reference_num: string; name: string };
+  epic?: { id: string; reference_num: string; name: string } | null;
 }
 
 export interface AhaIteration {

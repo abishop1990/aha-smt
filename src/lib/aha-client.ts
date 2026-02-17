@@ -514,7 +514,7 @@ export async function getFeature(featureId: string): Promise<AhaFeature> {
     {
       params: {
         fields:
-          "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,team_location,position,created_at,updated_at,description,requirements,release",
+          "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,team_location,position,created_at,updated_at,description,requirements,release,epic",
       },
     }
   );

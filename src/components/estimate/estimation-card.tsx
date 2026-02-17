@@ -104,6 +104,25 @@ export function EstimationCard({ feature }: EstimationCardProps) {
             </div>
           )}
 
+          {feature.epic && (
+            <div>
+              <span className="text-xs font-medium text-text-muted">Epic</span>
+              <p className="mt-1 text-sm text-text-primary">
+                <span className="font-mono text-text-muted mr-1">{feature.epic.reference_num}</span>
+                {feature.epic.name}
+              </p>
+            </div>
+          )}
+
+          {feature.original_estimate != null && (
+            <div>
+              <span className="text-xs font-medium text-text-muted">Initial Estimate</span>
+              <p className="mt-1 text-sm text-text-primary">
+                {feature.original_estimate} {feature.original_estimate === 1 ? "pt" : "pts"}
+              </p>
+            </div>
+          )}
+
           {feature.assigned_to_user && (
             <div>
               <span className="text-xs font-medium text-text-muted">
