@@ -3,38 +3,40 @@ import { getSuggestedPoints, getPointScale, type EstimationCriteria } from "@/li
 
 describe("constants", () => {
   describe("getSuggestedPoints", () => {
-    // Test all 27 combinations of L/M/H for scope, complexity, unknowns
+    // Test all 27 renamed combinations of S/M/L for scope, complexity, unknowns
     test.each([
-      // Low scope combinations
-      { scope: "L", complexity: "L", unknowns: "L", expected: 1 },
-      { scope: "L", complexity: "L", unknowns: "M", expected: 2 },
-      { scope: "L", complexity: "L", unknowns: "H", expected: 3 },
-      { scope: "L", complexity: "M", unknowns: "L", expected: 2 },
-      { scope: "L", complexity: "M", unknowns: "M", expected: 3 },
-      { scope: "L", complexity: "M", unknowns: "H", expected: 5 },
-      { scope: "L", complexity: "H", unknowns: "L", expected: 3 },
-      { scope: "L", complexity: "H", unknowns: "M", expected: 5 },
-      { scope: "L", complexity: "H", unknowns: "H", expected: 8 },
+      // Small scope combinations
+      { scope: "S", complexity: "S", unknowns: "S", expected: 1 },
+      { scope: "S", complexity: "S", unknowns: "M", expected: 2 },
+      { scope: "S", complexity: "S", unknowns: "L", expected: 3 },
+      { scope: "S", complexity: "M", unknowns: "S", expected: 2 },
+      { scope: "S", complexity: "M", unknowns: "M", expected: 3 },
+      { scope: "S", complexity: "M", unknowns: "L", expected: 5 },
+      { scope: "S", complexity: "L", unknowns: "S", expected: 3 },
+      { scope: "S", complexity: "L", unknowns: "M", expected: 5 },
+      { scope: "S", complexity: "L", unknowns: "L", expected: 8 },
       // Medium scope combinations
-      { scope: "M", complexity: "L", unknowns: "L", expected: 3 },
-      { scope: "M", complexity: "L", unknowns: "M", expected: 5 },
-      { scope: "M", complexity: "L", unknowns: "H", expected: 5 },
-      { scope: "M", complexity: "M", unknowns: "L", expected: 5 },
+      { scope: "M", complexity: "S", unknowns: "S", expected: 3 },
+      { scope: "M", complexity: "S", unknowns: "M", expected: 5 },
+      { scope: "M", complexity: "S", unknowns: "L", expected: 5 },
+      { scope: "M", complexity: "M", unknowns: "S", expected: 5 },
       { scope: "M", complexity: "M", unknowns: "M", expected: 8 },
-      { scope: "M", complexity: "M", unknowns: "H", expected: 8 },
-      { scope: "M", complexity: "H", unknowns: "L", expected: 8 },
-      { scope: "M", complexity: "H", unknowns: "M", expected: 13 },
-      { scope: "M", complexity: "H", unknowns: "H", expected: 13 },
-      // High scope combinations
-      { scope: "H", complexity: "L", unknowns: "L", expected: 5 },
-      { scope: "H", complexity: "L", unknowns: "M", expected: 8 },
-      { scope: "H", complexity: "L", unknowns: "H", expected: 13 },
-      { scope: "H", complexity: "M", unknowns: "L", expected: 8 },
-      { scope: "H", complexity: "M", unknowns: "M", expected: 13 },
-      { scope: "H", complexity: "M", unknowns: "H", expected: 13 },
-      { scope: "H", complexity: "H", unknowns: "L", expected: 13 },
-      { scope: "H", complexity: "H", unknowns: "M", expected: 21 },
-      { scope: "H", complexity: "H", unknowns: "H", expected: 21 },
+      { scope: "M", complexity: "M", unknowns: "L", expected: 8 },
+      { scope: "M", complexity: "L", unknowns: "S", expected: 8 },
+      { scope: "M", complexity: "L", unknowns: "M", expected: 13 },
+      { scope: "M", complexity: "L", unknowns: "L", expected: 13 },
+      // Large scope combinations
+      { scope: "L", complexity: "S", unknowns: "S", expected: 5 },
+      { scope: "L", complexity: "S", unknowns: "M", expected: 8 },
+      { scope: "L", complexity: "S", unknowns: "L", expected: 13 },
+      { scope: "L", complexity: "M", unknowns: "S", expected: 8 },
+      { scope: "L", complexity: "M", unknowns: "M", expected: 13 },
+      { scope: "L", complexity: "M", unknowns: "L", expected: 13 },
+      { scope: "L", complexity: "L", unknowns: "S", expected: 13 },
+      { scope: "L", complexity: "L", unknowns: "M", expected: 21 },
+      { scope: "L", complexity: "L", unknowns: "L", expected: 21 },
+      // Extra Large scope
+      { scope: "XL", complexity: "XL", unknowns: "XL", expected: 21 },
     ] as Array<EstimationCriteria & { expected: number }>)(
       "returns $expected for scope=$scope, complexity=$complexity, unknowns=$unknowns",
       ({ scope, complexity, unknowns, expected }) => {
@@ -43,16 +45,16 @@ describe("constants", () => {
       }
     );
 
-    it("returns 1 for L-L-L (minimum)", () => {
-      expect(getSuggestedPoints({ scope: "L", complexity: "L", unknowns: "L" })).toBe(1);
+    it("returns 1 for S-S-S (minimum)", () => {
+      expect(getSuggestedPoints({ scope: "S", complexity: "S", unknowns: "S" })).toBe(1);
     });
 
     it("returns 8 for M-M-M (median)", () => {
       expect(getSuggestedPoints({ scope: "M", complexity: "M", unknowns: "M" })).toBe(8);
     });
 
-    it("returns 21 for H-H-H (maximum)", () => {
-      expect(getSuggestedPoints({ scope: "H", complexity: "H", unknowns: "H" })).toBe(21);
+    it("returns 21 for L-L-L (maximum)", () => {
+      expect(getSuggestedPoints({ scope: "L", complexity: "L", unknowns: "L" })).toBe(21);
     });
 
     it("returns default 5 for invalid criteria key", () => {

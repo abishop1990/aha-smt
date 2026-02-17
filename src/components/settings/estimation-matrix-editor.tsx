@@ -10,15 +10,16 @@ export function EstimationMatrixEditor() {
   const matrix = config?.estimation.matrix ?? {};
 
   const dimensions = {
-    scope: ["L", "M", "H"],
-    complexity: ["L", "M", "H"],
-    unknowns: ["L", "M", "H"],
+    scope: ["S", "M", "L", "XL"],
+    complexity: ["S", "M", "L", "XL"],
+    unknowns: ["S", "M", "L", "XL"],
   };
 
   const scopeLabels: Record<string, string> = {
-    L: "Low",
+    S: "Small",
     M: "Medium",
-    H: "High",
+    L: "Large",
+    XL: "Extra Large",
   };
 
   function updateMatrix(key: string, value: number | undefined) {
@@ -48,7 +49,7 @@ export function EstimationMatrixEditor() {
             Scope: {scopeLabels[scope]}
           </h4>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             {dimensions.complexity.map((complexity) =>
               dimensions.unknowns.map((unknowns) => {
                 const key = `${scope}-${complexity}-${unknowns}`;

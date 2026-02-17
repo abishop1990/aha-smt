@@ -15,8 +15,8 @@ describe("config", () => {
       expect(config.sprints.mode).toBe("both");
       expect(config.sprints.defaultView).toBe("iterations");
       expect(config.workflow.completeMeanings).toEqual(["DONE", "SHIPPED"]);
-      expect(config.estimation.matrix["L-L-L"]).toBe(1);
-      expect(config.estimation.matrix["H-H-H"]).toBe(21);
+      expect(config.estimation.matrix["S-S-S"]).toBe(1);
+      expect(config.estimation.matrix["L-L-L"]).toBe(21);
     });
 
     it("returns singleton on subsequent calls", () => {
@@ -53,8 +53,8 @@ describe("config", () => {
   });
 
   describe("DEFAULT_CONFIG", () => {
-    it("has all 27 estimation matrix entries", () => {
-      expect(Object.keys(DEFAULT_CONFIG.estimation.matrix)).toHaveLength(27);
+    it("has all 64 estimation matrix entries", () => {
+      expect(Object.keys(DEFAULT_CONFIG.estimation.matrix)).toHaveLength(64);
     });
 
     it("has 7 point scale values", () => {

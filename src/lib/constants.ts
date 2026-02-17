@@ -1,6 +1,6 @@
 import { getConfigSync } from "./config";
 
-export type CriteriaLevel = "L" | "M" | "H";
+export type CriteriaLevel = "S" | "M" | "L" | "XL";
 
 export interface EstimationCriteria {
   scope: CriteriaLevel;

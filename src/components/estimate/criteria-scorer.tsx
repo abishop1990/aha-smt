@@ -31,9 +31,10 @@ const CRITERIA_ROWS: {
 ];
 
 const LEVELS: { value: CriteriaLevel; label: string }[] = [
-  { value: "L", label: "L" },
+  { value: "S", label: "S" },
   { value: "M", label: "M" },
-  { value: "H", label: "H" },
+  { value: "L", label: "L" },
+  { value: "XL", label: "XL" },
 ];
 
 export function CriteriaScorer({ criteria, onChange }: CriteriaScorerProps) {
@@ -58,7 +59,7 @@ export function CriteriaScorer({ criteria, onChange }: CriteriaScorerProps) {
                 type="button"
                 onClick={() => handleChange(row.key, level.value)}
                 className={cn(
-                  "flex h-9 w-12 items-center justify-center rounded-md text-sm font-medium transition-colors",
+                  "flex h-9 w-14 items-center justify-center rounded-md text-sm font-medium transition-colors",
                   criteria[row.key] === level.value
                     ? "bg-primary text-white"
                     : "bg-surface text-text-secondary hover:text-text-primary border border-border"
