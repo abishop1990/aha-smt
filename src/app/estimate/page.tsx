@@ -137,6 +137,7 @@ function EstimatePageContent() {
 
   const currentFeature = features[currentIndex] ?? null;
   const suggestedPoints = getSuggestedPoints(criteria);
+  const pointScale = config?.points.scale ?? [];
 
   const handleSubmit = useCallback(
     async (points: number) => {
@@ -298,6 +299,7 @@ function EstimatePageContent() {
               <PointPicker
                 suggestedPoints={suggestedPoints}
                 selectedPoints={selectedPoints}
+                pointScale={pointScale}
                 onSelect={(pts) => {
                   setSelectedPoints(pts);
                   handleSubmit(pts);

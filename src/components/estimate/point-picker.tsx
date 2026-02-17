@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { getPointScale } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +9,7 @@ interface PointPickerProps {
   selectedPoints: number | null;
   onSelect: (points: number) => void;
   onSkip: () => void;
+  pointScale: number[];
 }
 
 export function PointPicker({
@@ -17,8 +17,8 @@ export function PointPicker({
   selectedPoints,
   onSelect,
   onSkip,
+  pointScale,
 }: PointPickerProps) {
-  const pointScale = getPointScale();
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
