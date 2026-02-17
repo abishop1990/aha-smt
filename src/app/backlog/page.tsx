@@ -35,27 +35,23 @@ export default function BacklogPage() {
 
   // Release mode: fetch features for selected release
   const releaseFeatures = useFeatures(
-    filterType === "release" ? effectiveReleaseId : null,
-    { unestimatedOnly: true }
+    filterType === "release" ? effectiveReleaseId : null
   );
 
   // Team location mode: fetch all product features (locations come from response)
   const productFeatures = useProductFeatures(
-    filterType === "team_location" ? teamProductId : null,
-    { unestimatedOnly: true }
+    filterType === "team_location" ? teamProductId : null
   );
 
   // Tag mode: fetch features by tag
   const tagFeatures = useFeaturesByTag(
     filterType === "tag" ? teamProductId : null,
-    filterType === "tag" ? configTagFilter : null,
-    { unestimatedOnly: true }
+    filterType === "tag" ? configTagFilter : null
   );
 
   // Epic mode: fetch features by epic
   const epicFeatures = useFeaturesByEpic(
-    filterType === "epic" ? epicId : null,
-    { unestimatedOnly: true }
+    filterType === "epic" ? epicId : null
   );
 
   const teamLocations = productFeatures.data?.team_locations ?? null;
@@ -91,8 +87,8 @@ export default function BacklogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">Unestimated Backlog</h1>
-        <p className="text-text-secondary mt-1">Features that need story point estimates</p>
+        <h1 className="text-2xl font-bold text-text-primary">Backlog</h1>
+        <p className="text-text-secondary mt-1">All features in the current backlog</p>
       </div>
 
       {filterType === "team_location" ? (
