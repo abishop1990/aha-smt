@@ -13,7 +13,6 @@ import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
 import { CriteriaScorer } from "@/components/estimate/criteria-scorer";
 import { PointPicker } from "@/components/estimate/point-picker";
-import { EstimationContextPanel } from "@/components/estimate/estimation-context-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
@@ -208,8 +207,7 @@ function EstimatePageContent() {
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-4 gap-6">
           <Skeleton className="h-96 col-span-1" />
-          <Skeleton className="h-96 col-span-2" />
-          <Skeleton className="h-96 col-span-1" />
+          <Skeleton className="h-96 col-span-3" />
         </div>
       </div>
     );
@@ -290,7 +288,7 @@ function EstimatePageContent() {
         </div>
 
         {/* Main estimation area */}
-        <div className="col-span-6 space-y-6">
+        <div className="col-span-9 space-y-6">
           {currentFeature && <EstimationCard feature={currentFeature} />}
 
           <CriteriaScorer criteria={criteria} onChange={setCriteria} />
@@ -311,24 +309,6 @@ function EstimatePageContent() {
 
           {updateEstimate.isPending && (
             <p className="text-sm text-text-secondary">Saving to Aha...</p>
-          )}
-        </div>
-
-        {/* Context panel */}
-        <div className="col-span-3">
-          {currentFeature && filterType === "release" && selectedReleaseId && (
-            <EstimationContextPanel
-              featureTags={currentFeature.tags ?? []}
-              releaseId={selectedReleaseId}
-            />
-          )}
-          {currentFeature && filterType === "team_location" && (
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-medium text-text-primary mb-2">Context</h3>
-              <p className="text-xs text-text-secondary">
-                Team Location: {selectedTeamLocation}
-              </p>
-            </div>
           )}
         </div>
       </div>
