@@ -24,12 +24,19 @@ export async function GET() {
   }
 }
 
+const ALLOWED_SETTING_KEYS = new Set(["defaultPointsPerDay", "standup_user_ids"]);
+
 export async function PUT(request: NextRequest) {
   try {
     const db = getDb();
     const body = await request.json();
 
-    for (const [key, value] of Object.entries(body)) {
+    const entries = Object.entries(body).filter(([key]) => ALLOWED_SETTING_KEYS.has(key));
+    if (entries.length === 0) {
+      return NextResponse.json({ error: "No valid setting keys provided" }, { status: 400 });
+    }
+
+    for (const [key, value] of entries) {
       await db
         .insert(appSettings)
         .values({ key, value: String(value), updatedAt: new Date().toISOString() })

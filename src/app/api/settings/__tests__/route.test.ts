@@ -36,14 +36,14 @@ describe("GET /api/settings", () => {
   it("includes ahaDomain from AHA_DOMAIN env var alongside DB settings", async () => {
     const putReq = new NextRequest(new URL("http://localhost:3000/api/settings"), {
       method: "PUT",
-      body: JSON.stringify({ teamName: "Engineering" }),
+      body: JSON.stringify({ defaultPointsPerDay: "2" }),
     });
     await PUT(putReq);
 
     const res = await GET();
     const data = await res.json();
 
-    expect(data.teamName).toBe("Engineering");
+    expect(data.defaultPointsPerDay).toBe("2");
     expect(data.ahaDomain).toBe("testcompany");
   });
 
@@ -78,8 +78,8 @@ describe("PUT /api/settings", () => {
     const putReq = new NextRequest(new URL("http://localhost:3000/api/settings"), {
       method: "PUT",
       body: JSON.stringify({
-        defaultReleaseId: "REL-123",
-        teamName: "Engineering",
+        defaultPointsPerDay: "2",
+        standup_user_ids: '["user-1","user-2"]',
       }),
     });
 
@@ -92,35 +92,59 @@ describe("PUT /api/settings", () => {
     const getRes = await GET();
     const getData = await getRes.json();
 
-    expect(getData.defaultReleaseId).toBe("REL-123");
-    expect(getData.teamName).toBe("Engineering");
+    expect(getData.defaultPointsPerDay).toBe("2");
+    expect(getData.standup_user_ids).toBe('["user-1","user-2"]');
   });
 
   it("updates existing settings (upsert)", async () => {
     // First PUT
     const firstReq = new NextRequest(new URL("http://localhost:3000/api/settings"), {
       method: "PUT",
-      body: JSON.stringify({
-        defaultReleaseId: "REL-123",
-      }),
+      body: JSON.stringify({ defaultPointsPerDay: "1" }),
     });
     await PUT(firstReq);
 
     // Second PUT with update
     const secondReq = new NextRequest(new URL("http://localhost:3000/api/settings"), {
       method: "PUT",
-      body: JSON.stringify({
-        defaultReleaseId: "REL-456",
-        newSetting: "value",
-      }),
+      body: JSON.stringify({ defaultPointsPerDay: "3" }),
     });
     await PUT(secondReq);
 
     const getRes = await GET();
     const getData = await getRes.json();
 
-    expect(getData.defaultReleaseId).toBe("REL-456");
-    expect(getData.newSetting).toBe("value");
+    expect(getData.defaultPointsPerDay).toBe("3");
+  });
+
+  it("rejects unknown setting keys with 400", async () => {
+    const req = new NextRequest(new URL("http://localhost:3000/api/settings"), {
+      method: "PUT",
+      body: JSON.stringify({ unknownKey: "value", anotherBadKey: "x" }),
+    });
+
+    const res = await PUT(req);
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeTruthy();
+  });
+
+  it("silently ignores unknown keys but saves valid ones", async () => {
+    const req = new NextRequest(new URL("http://localhost:3000/api/settings"), {
+      method: "PUT",
+      body: JSON.stringify({ defaultPointsPerDay: "5", badKey: "ignored" }),
+    });
+
+    const res = await PUT(req);
+
+    expect(res.status).toBe(200);
+
+    const getRes = await GET();
+    const getData = await getRes.json();
+
+    expect(getData.defaultPointsPerDay).toBe("5");
+    expect(getData.badKey).toBeUndefined();
   });
 
   it("handles database errors", async () => {
@@ -128,7 +152,7 @@ describe("PUT /api/settings", () => {
 
     const req = new NextRequest(new URL("http://localhost:3000/api/settings"), {
       method: "PUT",
-      body: JSON.stringify({ key: "value" }),
+      body: JSON.stringify({ defaultPointsPerDay: "1" }),
     });
 
     const res = await PUT(req);
