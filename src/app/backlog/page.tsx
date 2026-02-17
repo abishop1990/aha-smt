@@ -6,12 +6,16 @@ import { BacklogTable } from "@/components/backlog/backlog-table";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures } from "@/hooks/use-features";
 import { useProductFeatures } from "@/hooks/use-product-features";
+import { useFeaturesByTag } from "@/hooks/use-features-by-tag";
+import { useFeaturesByEpic } from "@/hooks/use-features-by-epic";
 import { useConfig } from "@/hooks/use-config";
 
 export default function BacklogPage() {
   const { data: config } = useConfig();
   const filterType = config?.backlog.filterType ?? "release";
   const teamProductId = config?.backlog.teamProductId ?? null;
+  const configTagFilter = config?.backlog.tagFilter ?? null;
+  const epicId = config?.backlog.epicId ?? null;
 
   // Release mode state
   const { data: releasesData } = useReleases();
@@ -41,6 +45,19 @@ export default function BacklogPage() {
     { unestimatedOnly: true }
   );
 
+  // Tag mode: fetch features by tag
+  const tagFeatures = useFeaturesByTag(
+    filterType === "tag" ? teamProductId : null,
+    filterType === "tag" ? configTagFilter : null,
+    { unestimatedOnly: true }
+  );
+
+  // Epic mode: fetch features by epic
+  const epicFeatures = useFeaturesByEpic(
+    filterType === "epic" ? epicId : null,
+    { unestimatedOnly: true }
+  );
+
   const teamLocations = productFeatures.data?.team_locations ?? null;
 
   // Auto-select first team location when data arrives
@@ -61,9 +78,15 @@ export default function BacklogPage() {
 
   // Resolve features + isLoading based on filterType
   const features =
-    filterType === "team_location" ? locationFilteredFeatures : releaseFeatures.data?.features;
+    filterType === "team_location" ? locationFilteredFeatures :
+    filterType === "tag" ? tagFeatures.data?.features :
+    filterType === "epic" ? epicFeatures.data?.features :
+    releaseFeatures.data?.features;
   const isLoading =
-    filterType === "team_location" ? productFeatures.isLoading : releaseFeatures.isLoading;
+    filterType === "team_location" ? productFeatures.isLoading :
+    filterType === "tag" ? tagFeatures.isLoading :
+    filterType === "epic" ? epicFeatures.isLoading :
+    releaseFeatures.isLoading;
 
   return (
     <div className="space-y-6">
@@ -108,6 +131,16 @@ export default function BacklogPage() {
             onTagChange={setTagFilter}
           />
         </div>
+      ) : filterType === "tag" || filterType === "epic" ? (
+        /* Tag/epic modes: filter is config-driven, no release selector needed */
+        <BacklogFilters
+          releaseId={null}
+          onReleaseChange={() => {}}
+          assigneeFilter={assigneeFilter}
+          onAssigneeChange={setAssigneeFilter}
+          tagFilter={tagFilter}
+          onTagChange={setTagFilter}
+        />
       ) : (
         <BacklogFilters
           releaseId={effectiveReleaseId}
