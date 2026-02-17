@@ -15,19 +15,22 @@ export function GanttChart({ items, timelineStart, totalDays, monthTicks }: Gant
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       {/* X-axis header */}
-      <div className="relative h-8 border-b border-border bg-background" style={{ minWidth: "800px" }}>
-        {monthTicks.map((tick) => (
-          <span
-            key={tick.label}
-            style={{
-              left: `calc(180px + ${tick.leftPct}% * ((100% - 180px) / 100))`,
-              transform: "translateX(-50%)",
-            }}
-            className="absolute top-1.5 text-xs text-text-muted select-none whitespace-nowrap"
-          >
-            {tick.label}
-          </span>
-        ))}
+      <div className="flex h-8 border-b border-border bg-background" style={{ minWidth: "800px" }}>
+        <div className="w-[180px] shrink-0" />
+        <div className="relative flex-1">
+          {monthTicks.map((tick) => (
+            <span
+              key={tick.label}
+              style={{
+                left: `${tick.leftPct}%`,
+                transform: "translateX(-50%)",
+              }}
+              className="absolute top-1.5 text-xs text-text-muted select-none whitespace-nowrap"
+            >
+              {tick.label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Rows */}
