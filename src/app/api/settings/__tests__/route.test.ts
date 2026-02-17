@@ -8,20 +8,53 @@ vi.mock("@/lib/db", () => ({
   getDb: vi.fn(() => testDb.db),
 }));
 
+vi.mock("@/lib/env", () => ({
+  getEnv: vi.fn(() => ({ AHA_DOMAIN: "testcompany" })),
+  __resetEnv: vi.fn(),
+}));
+
 import { GET, PUT } from "../route";
+import { getEnv } from "@/lib/env";
+
+const mockGetEnv = vi.mocked(getEnv);
 
 describe("GET /api/settings", () => {
   beforeEach(() => {
     testDb = createTestDb();
     vi.clearAllMocks();
+    mockGetEnv.mockReturnValue({ AHA_DOMAIN: "testcompany" } as ReturnType<typeof getEnv>);
   });
 
-  it("returns empty object initially", async () => {
+  it("returns empty object with ahaDomain when no DB settings exist", async () => {
     const res = await GET();
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({});
+    expect(data).toEqual({ ahaDomain: "testcompany" });
+  });
+
+  it("includes ahaDomain from AHA_DOMAIN env var alongside DB settings", async () => {
+    const putReq = new NextRequest(new URL("http://localhost:3000/api/settings"), {
+      method: "PUT",
+      body: JSON.stringify({ teamName: "Engineering" }),
+    });
+    await PUT(putReq);
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.teamName).toBe("Engineering");
+    expect(data.ahaDomain).toBe("testcompany");
+  });
+
+  it("omits ahaDomain when env is unavailable", async () => {
+    mockGetEnv.mockImplementation(() => { throw new Error("env not configured"); });
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.ahaDomain).toBeUndefined();
   });
 
   it("handles database errors", async () => {
