@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useFeatures } from "@/hooks/use-features";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import type { AhaFeature } from "@/lib/aha-types";
 
 interface BacklogTableProps {
-  releaseId: string | null;
+  features: AhaFeature[] | undefined;
+  isLoading: boolean;
   assigneeFilter: string;
   tagFilter: string;
 }
@@ -24,17 +24,15 @@ function formatDate(dateString: string): string {
 }
 
 export function BacklogTable({
-  releaseId,
+  features: featuresProp,
+  isLoading,
   assigneeFilter,
   tagFilter,
 }: BacklogTableProps) {
   const router = useRouter();
-  const { data, isLoading } = useFeatures(releaseId, {
-    unestimatedOnly: true,
-  });
 
   const filteredFeatures = useMemo(() => {
-    let features = data?.features ?? [];
+    let features = featuresProp ?? [];
 
     if (assigneeFilter) {
       const filter = assigneeFilter.toLowerCase();
@@ -51,7 +49,7 @@ export function BacklogTable({
     }
 
     return features;
-  }, [data?.features, assigneeFilter, tagFilter]);
+  }, [featuresProp, assigneeFilter, tagFilter]);
 
   const columns: Column<AhaFeature>[] = useMemo(
     () => [
@@ -146,11 +144,7 @@ export function BacklogTable({
       data={filteredFeatures}
       isLoading={isLoading}
       emptyMessage="No unestimated features"
-      emptyDescription={
-        releaseId
-          ? "All features in this release have been estimated."
-          : "Select a release to view unestimated features."
-      }
+      emptyDescription="All features have been estimated."
       getRowKey={(feature) => feature.id}
     />
   );
