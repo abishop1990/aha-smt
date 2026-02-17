@@ -19,8 +19,11 @@ export function GanttChart({ items, timelineStart, totalDays, monthTicks }: Gant
         {monthTicks.map((tick) => (
           <span
             key={tick.label}
-            style={{ left: `calc(180px + ${tick.leftPct}% * ((100% - 180px) / 100))` }}
-            className="absolute top-1.5 text-xs text-text-muted select-none"
+            style={{
+              left: `calc(180px + ${tick.leftPct}% * ((100% - 180px) / 100))`,
+              transform: "translateX(-50%)",
+            }}
+            className="absolute top-1.5 text-xs text-text-muted select-none whitespace-nowrap"
           >
             {tick.label}
           </span>
