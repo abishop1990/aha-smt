@@ -9,11 +9,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
     const entry = await db
       .select()
       .from(standupEntries)
-      .where(eq(standupEntries.id, parseInt(id)));
+      .where(eq(standupEntries.id, numericId));
 
     if (entry.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -32,6 +34,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
     const body = await request.json();
 
@@ -45,7 +49,7 @@ export async function PUT(
         featureRefs: body.featureRefs ? JSON.stringify(body.featureRefs) : undefined,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(standupEntries.id, parseInt(id)))
+      .where(eq(standupEntries.id, numericId))
       .returning();
 
     if (updated.length === 0) {
@@ -65,8 +69,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
-    await db.delete(standupEntries).where(eq(standupEntries.id, parseInt(id)));
+    await db.delete(standupEntries).where(eq(standupEntries.id, numericId));
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete standup";

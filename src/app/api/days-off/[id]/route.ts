@@ -9,8 +9,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
-    await db.delete(daysOff).where(eq(daysOff.id, parseInt(id)));
+    await db.delete(daysOff).where(eq(daysOff.id, numericId));
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete day off";

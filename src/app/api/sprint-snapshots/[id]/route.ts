@@ -9,11 +9,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
     const snapshot = await db
       .select()
       .from(sprintSnapshots)
-      .where(eq(sprintSnapshots.id, parseInt(id)));
+      .where(eq(sprintSnapshots.id, numericId));
 
     if (snapshot.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -32,8 +34,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
-    await db.delete(sprintSnapshots).where(eq(sprintSnapshots.id, parseInt(id)));
+    await db.delete(sprintSnapshots).where(eq(sprintSnapshots.id, numericId));
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete snapshot";

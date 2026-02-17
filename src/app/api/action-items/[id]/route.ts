@@ -9,6 +9,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     const db = getDb();
     const body = await request.json();
 
@@ -30,7 +32,7 @@ export async function PUT(
     const updated = await db
       .update(actionItemsTable)
       .set(updateData)
-      .where(eq(actionItemsTable.id, parseInt(id)))
+      .where(eq(actionItemsTable.id, numericId))
       .returning();
 
     if (updated.length === 0) {
