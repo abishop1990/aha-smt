@@ -4,7 +4,6 @@ import { sprintSnapshots } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
 import { getPoints } from "@/lib/points";
-import { getConfig } from "@/lib/config";
 import { getEnv } from "@/lib/env";
 
 export async function GET() {

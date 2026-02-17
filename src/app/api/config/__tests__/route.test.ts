@@ -199,7 +199,7 @@ describe("PUT /api/config — { key, value } format", () => {
     });
 
     const res = await PUT(req);
-    const data = await res.json();
+    await res.json();
 
     // The body has "key" but no "value" field — route checks "value" in body
     // Since value is undefined, the check `"value" in body` is false so it falls
@@ -386,7 +386,7 @@ describe("PUT /api/config — invalid body", () => {
     });
 
     const res = await PUT(req);
-    const data = await res.json();
+    await res.json();
 
     // Arrays are objects in JS — route checks typeof body !== "object"
     // Arrays pass that check. The route will attempt to flatten array items.

@@ -373,6 +373,7 @@ describe("useUpdateStandup", () => {
       })
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...bodyWithoutId } = updatePayload;
     const sentBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(sentBody).toEqual(bodyWithoutId);

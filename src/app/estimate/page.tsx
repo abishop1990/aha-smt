@@ -26,7 +26,6 @@ function EstimatePageContent() {
   const teamProductId = config?.backlog.teamProductId ?? null;
   const tagFilter = config?.backlog.tagFilter ?? null;
   const epicId = config?.backlog.epicId ?? null;
-  const excludeWorkflowKinds = config?.backlog.excludeWorkflowKinds ?? [];
 
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
 
@@ -111,15 +110,13 @@ function EstimatePageContent() {
 
   const updateEstimate = useUpdateFeatureEstimate();
 
+  const excludeWorkflowKinds = config?.backlog.excludeWorkflowKinds;
   const features = useMemo(
     () =>
       (featuresData?.features ?? []).filter((f) => {
         if (f.workflow_status?.complete) return false;
-        if (
-          excludeWorkflowKinds.length > 0 &&
-          f.workflow_kind?.name &&
-          excludeWorkflowKinds.includes(f.workflow_kind.name)
-        ) return false;
+        if (excludeWorkflowKinds?.length && f.workflow_kind?.name &&
+            excludeWorkflowKinds.includes(f.workflow_kind.name)) return false;
         return true;
       }),
     [featuresData, excludeWorkflowKinds]
