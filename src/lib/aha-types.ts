@@ -1,10 +1,3 @@
-export interface AhaPagination {
-  total_records: number;
-  total_pages: number;
-  current_page: number;
-  per_page: number;
-}
-
 export interface AhaWorkflowStatus {
   id: string;
   name: string;
@@ -81,12 +74,3 @@ export interface AhaTeam {
   team_members?: AhaTeamMember[];
 }
 
-export interface AhaSchedule {
-  user_id: string;
-  story_points_per_day?: number;
-}
-
-export interface AhaApiResponse<T> {
-  pagination?: AhaPagination;
-  [key: string]: T[] | AhaPagination | T | undefined;
-}
