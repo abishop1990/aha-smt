@@ -9,6 +9,7 @@ import type {
   AhaTeam,
   AhaUser,
   AhaEpic,
+  AhaVote,
 } from "./aha-types";
 import { isUnestimated } from "./points";
 
@@ -748,6 +749,29 @@ export async function updateFeatureEstimate(
   return response.feature;
 }
 
+
+export async function listFeatureVotes(featureId: string): Promise<AhaVote[]> {
+  const res = await ahaFetch<{ votes?: AhaVote[] }>(
+    `/features/${featureId}/votes`,
+    { params: { fields: "id,user,created_at" }, noCache: true }
+  );
+  return res.votes ?? [];
+}
+
+export async function createFeatureVote(featureId: string): Promise<AhaVote> {
+  const res = await ahaFetch<{ vote: AhaVote }>(
+    `/features/${featureId}/votes`,
+    { method: "POST", body: {} }
+  );
+  return res.vote;
+}
+
+export async function deleteFeatureVote(featureId: string, voteId: string): Promise<void> {
+  await ahaFetch<unknown>(
+    `/features/${featureId}/votes/${voteId}`,
+    { method: "DELETE" }
+  );
+}
 export async function listEpicsForProduct(productId: string): Promise<AhaEpic[]> {
   const res = await ahaFetch<{ epics?: AhaEpic[] }>(
     `/products/${productId}/epics`,

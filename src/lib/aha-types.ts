@@ -85,3 +85,9 @@ export interface AhaTeam {
   team_members?: AhaTeamMember[];
 }
 
+
+export interface AhaVote {
+  id: string;
+  user: AhaUser;
+  created_at?: string;
+}
