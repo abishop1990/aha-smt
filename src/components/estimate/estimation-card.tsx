@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DOMPurify from "dompurify";
 import type { AhaFeature } from "@/lib/aha-types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureBadge } from "@/components/shared/feature-badge";
@@ -7,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/use-settings";
 import { Link2, Check } from "lucide-react";
 
-// Strip script tags from Aha-sourced HTML before rendering.
-// Full DOMPurify not needed — this is a private tool with trusted data.
+// Sanitize Aha HTML via DOMPurify. Server-side (SSR) there is no DOM and no JS
+// execution risk, so we pass the raw string; DOMPurify runs on the client.
 function safeHtml(html: string): string {
-  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  if (typeof window === "undefined") return html;
+  return DOMPurify.sanitize(html);
 }
 
 interface EstimationCardProps {
@@ -29,7 +31,7 @@ export function EstimationCard({ feature }: EstimationCardProps) {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => {});
   }
 
   return (

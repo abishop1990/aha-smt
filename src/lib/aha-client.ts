@@ -437,14 +437,14 @@ export async function listFeaturesInProduct(
   // Exclude certain workflow kinds if specified
   if (options?.excludeWorkflowKinds && options.excludeWorkflowKinds.length > 0) {
     filtered = filtered.filter(
-      (f) => !f.workflow_kind || !options.excludeWorkflowKinds!.includes(f.workflow_kind.name)
+      (f) => !f.workflow_kind || !options.excludeWorkflowKinds?.includes(f.workflow_kind.name)
     );
   }
 
   // Filter by tag if specified (case-insensitive)
   if (options?.tag) {
     filtered = filtered.filter((f) =>
-      f.tags?.some((t) => t.toLowerCase() === options.tag!.toLowerCase())
+      f.tags?.some((t) => t.toLowerCase() === options.tag?.toLowerCase())
     );
   }
 
