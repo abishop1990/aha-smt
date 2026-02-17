@@ -65,34 +65,10 @@ export async function PUT(request: NextRequest) {
         );
       }
 
-      // Upsert the config value
+      // Upsert the config value atomically
       const serializedValue = JSON.stringify(value);
-      await db
-        .insert(orgConfig)
-        .values({
-          key,
-          value: serializedValue,
-          type: Array.isArray(value) ? "array" : typeof value,
-          category: key.split(".")[0],
-          label: key,
-          defaultValue: serializedValue,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: orgConfig.key,
-          set: {
-            value: serializedValue,
-            updatedAt: now,
-          },
-        });
-    } else {
-      // Handle Partial<AhaSMTConfig> format (nested object)
-      const flatUpdates = flattenObject(body);
-
-      for (const [key, value] of Object.entries(flatUpdates)) {
-        const serializedValue = JSON.stringify(value);
-        await db
-          .insert(orgConfig)
+      db.transaction((tx) => {
+        tx.insert(orgConfig)
           .values({
             key,
             value: serializedValue,
@@ -104,12 +80,36 @@ export async function PUT(request: NextRequest) {
           })
           .onConflictDoUpdate({
             target: orgConfig.key,
-            set: {
+            set: { value: serializedValue, updatedAt: now },
+          })
+          .run();
+      });
+    } else {
+      // Handle Partial<AhaSMTConfig> format (nested object)
+      // Flatten first so any error aborts before we touch the DB
+      const flatUpdates = flattenObject(body);
+
+      // Wrap all upserts in a single transaction — all succeed or none do
+      db.transaction((tx) => {
+        for (const [key, value] of Object.entries(flatUpdates)) {
+          const serializedValue = JSON.stringify(value);
+          tx.insert(orgConfig)
+            .values({
+              key,
               value: serializedValue,
+              type: Array.isArray(value) ? "array" : typeof value,
+              category: key.split(".")[0],
+              label: key,
+              defaultValue: serializedValue,
               updatedAt: now,
-            },
-          });
-      }
+            })
+            .onConflictDoUpdate({
+              target: orgConfig.key,
+              set: { value: serializedValue, updatedAt: now },
+            })
+            .run();
+        }
+      });
     }
 
     // Invalidate caches

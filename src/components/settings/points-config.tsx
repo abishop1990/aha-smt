@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useConfig } from "@/hooks/use-config";
 import { useUpdateConfig } from "@/hooks/use-update-config";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,7 +74,7 @@ export function PointsConfig() {
   const handleSaveScale = () => {
     const parsed = parseScale(scaleInput);
     if (parsed.length === 0) {
-      // Show error or revert
+      toast.error("Point scale must contain at least one valid number");
       setScaleInput(config.points.scale.join(","));
       return;
     }
@@ -86,6 +87,7 @@ export function PointsConfig() {
   const handleSaveDefaultPerDay = () => {
     const value = parseFloat(defaultPerDayInput);
     if (isNaN(value) || value < 0) {
+      toast.error("Default points per day must be a positive number");
       setDefaultPerDayInput(String(config.points.defaultPerDay));
       return;
     }
