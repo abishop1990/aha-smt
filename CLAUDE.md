@@ -35,12 +35,13 @@ Aha! proxy routes live under `src/app/api/aha/`. Local SQLite routes (standups, 
 - **Sprints are modeled as Aha! Releases** (Aha! has no dedicated sprint API)
 - **Env vars** validated with Zod in `src/lib/env.ts`. Singleton pattern with `__resetEnv()` for tests
 - **DB tables** auto-created via raw SQL in `src/lib/db/index.ts` (no migration files needed)
+- **Config precedence** (highest → lowest): `aha-smt.config.ts` file → env vars → `org_config` DB table → `DEFAULT_CONFIG`. Server-side loading in `src/lib/config.server.ts`; client-safe sync cache in `src/lib/config.ts`
 - **Path alias**: `@/*` maps to `./src/*`
 
 ### File layout
 
 ```
-src/lib/            Core: aha-client, aha-cache, aha-rate-limiter, env, constants, types, db/
+src/lib/            Core: aha-client, aha-cache, aha-rate-limiter, env, constants, types, db/, config.ts, config.server.ts, points.ts
 src/hooks/          React Query hooks (use-features, use-releases, etc.)
 src/components/     ui/ layout/ shared/ backlog/ estimate/ sprint/ metrics/ standup/
 src/app/api/        Route handlers (Aha! proxy + local SQLite)
@@ -51,7 +52,7 @@ benchmarks/         Vitest benchmarks + live API benchmark script
 ## Testing
 
 - Vitest with `vite-tsconfig-paths` for `@/` alias resolution
-- `vitest.setup.ts` resets singletons (clearCache, __resetRateLimiter, __resetEnv) in global beforeEach
+- `vitest.setup.ts` resets singletons (clearCache, __resetRateLimiter, __resetEnv, __resetConfig) in global beforeEach
 - Singleton modules expose `__reset*()` functions for test isolation
 - Cache tests must pass explicit TTL to `setInCache()` (the env mock doesn't reliably intercept relative imports)
 - Rate limiter tests using fake timers must call `__resetRateLimiter()` AFTER `vi.useFakeTimers()`
@@ -60,6 +61,7 @@ benchmarks/         Vitest benchmarks + live API benchmark script
 
 ## Gotchas
 
+- **GraphQL `WorkflowStatus`** does NOT have a `complete` field — use `internalMeaning` and compute completeness from `completeMeanings` config
 - The Aha! API returns `project_users` (not `users`) from `/products/:id/users`
 - `/project_teams` endpoint returns 404 on some Aha! plans — handle gracefully
 - Feature list latency is ~1-2s per 200 items from Aha! — always use server-side pagination (`listFeaturesPage`) for large releases
