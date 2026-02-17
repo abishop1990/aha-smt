@@ -243,7 +243,7 @@ export async function listFeaturesPage(
     pagination: PaginatedFeatures["pagination"];
   }>(`/releases/${releaseId}/features`, {
     params: {
-      fields: "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
+      fields: "id,reference_num,name,score,work_units,original_estimate,workflow_status,workflow_kind,assigned_to_user,tags,position,created_at",
       per_page: String(perPage),
       page: String(page),
     },
@@ -263,7 +263,7 @@ export async function listFeaturesInRelease(
     "features",
     {
       fields:
-        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
+        "id,reference_num,name,score,work_units,original_estimate,workflow_status,workflow_kind,assigned_to_user,tags,position,created_at",
     }
   );
 
@@ -286,7 +286,7 @@ export async function listFeaturesForEpic(
     "features",
     {
       fields:
-        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
+        "id,reference_num,name,score,work_units,original_estimate,workflow_status,workflow_kind,assigned_to_user,tags,position,created_at",
     }
   );
   if (options?.unestimatedOnly) return features.filter(isUnestimated);
