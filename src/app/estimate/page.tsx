@@ -23,14 +23,14 @@ import { Calculator } from "lucide-react";
 
 function EstimatePageContent() {
   const searchParams = useSearchParams();
-  const { data: config } = useConfig();
+  const { data: config, isLoading: configLoading } = useConfig();
   const filterType = config?.backlog.filterType ?? "release";
   const teamProductId = config?.backlog.teamProductId ?? null;
   const tagFilter = config?.backlog.tagFilter ?? null;
   const epicId = config?.backlog.epicId ?? null;
 
-  const { data: releasesData } = useReleases();
-  const { data: teamLocationsData } = useTeamLocations(
+  const { data: releasesData, isLoading: releasesLoading } = useReleases();
+  const { data: teamLocationsData, isLoading: teamLocationsLoading } = useTeamLocations(
     filterType === "team_location" ? teamProductId : null
   );
 
@@ -74,11 +74,21 @@ function EstimatePageContent() {
     { unestimatedOnly: true }
   );
 
-  const { data: featuresData, isLoading } =
+  const { data: featuresData, isLoading: featuresLoading } =
     filterType === "team_location" ? locationFeatures :
     filterType === "tag" ? tagFeatures :
     filterType === "epic" ? epicFeatures :
     releaseFeatures;
+
+  // True while we haven't yet resolved which filter target to fetch.
+  // This covers the gap between data arriving and the useEffect setting
+  // selectedReleaseId/selectedTeamLocation (which causes a false empty state flash).
+  const selectionPending =
+    configLoading ||
+    (filterType === "release" && (releasesLoading || !selectedReleaseId)) ||
+    (filterType === "team_location" && (teamLocationsLoading || !selectedTeamLocation));
+
+  const isLoading = selectionPending || featuresLoading;
 
   const updateEstimate = useUpdateFeatureEstimate();
 
