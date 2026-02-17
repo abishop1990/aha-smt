@@ -11,7 +11,6 @@ import { useProductFeatures } from "@/hooks/use-product-features";
 import { useConfig } from "@/hooks/use-config";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
-import { VotePanel } from "@/components/estimate/vote-panel";
 import { CriteriaScorer } from "@/components/estimate/criteria-scorer";
 import { PointPicker } from "@/components/estimate/point-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -297,7 +296,6 @@ function EstimatePageContent() {
         <div className="col-span-9 space-y-6">
           {currentFeature && <EstimationCard feature={currentFeature} />}
 
-          {currentFeature && <VotePanel featureId={currentFeature.id} />}
 
           <CriteriaScorer criteria={criteria} onChange={setCriteria} />
 
