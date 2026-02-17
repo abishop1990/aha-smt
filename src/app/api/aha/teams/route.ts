@@ -6,7 +6,11 @@ export async function GET() {
     const teams = await listTeams();
     return NextResponse.json({ teams });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch teams";
+    // /project_teams returns 404 on some Aha! plans — return empty list gracefully
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("404")) {
+      return NextResponse.json({ teams: [] });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
