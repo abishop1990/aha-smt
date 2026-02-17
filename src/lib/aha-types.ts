@@ -28,6 +28,7 @@ export interface AhaFeature {
   work_units?: number | null;
   original_estimate?: number | null;
   workflow_status?: AhaWorkflowStatus;
+  workflow_kind?: { id: string; name: string };
   assigned_to_user?: AhaUser | null;
   tags?: string[];
   team_location?: string;

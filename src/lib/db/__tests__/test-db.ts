@@ -87,9 +87,35 @@ export function createTestDb() {
       is_holiday INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS org_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      label TEXT NOT NULL,
+      description TEXT,
+      default_value TEXT,
+      options TEXT,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   const db = drizzle(sqlite, { schema });
+
+  // Seed org_config with minimal defaults needed for tests
+  // We use raw SQL to avoid circular dependencies with the seed function
+  const now = new Date().toISOString();
+  sqlite.exec(`
+    INSERT INTO org_config (key, value, type, category, label, description, default_value, options, updated_at) VALUES
+    ('sprints.mode', '"both"', 'enum', 'sprints', 'Sprint Tracking Mode', 'Which sprint tracking mode to use', '"both"', '["iterations","releases","both"]', '${now}'),
+    ('sprints.defaultView', '"iterations"', 'enum', 'sprints', 'Default Sprint View', 'Default tab when mode is both', '"iterations"', '["iterations","releases"]', '${now}'),
+    ('points.source', '["original_estimate","score"]', 'array', 'points', 'Point Source Priority', 'Priority order for extracting points', '["original_estimate","score"]', '["score","work_units","original_estimate"]', '${now}'),
+    ('points.scale', '[1,2,3,5,8,13,21]', 'array', 'points', 'Point Scale', 'Valid point values shown in estimation UI', '[1,2,3,5,8,13,21]', NULL, '${now}'),
+    ('points.defaultPerDay', '1', 'number', 'points', 'Default Points Per Day', 'Starting default for capacity per team member', '1', NULL, '${now}'),
+    ('workflow.completeMeanings', '["DONE","SHIPPED"]', 'array', 'workflow', 'Complete Workflow Meanings', 'Status meanings that count as complete', '["DONE","SHIPPED"]', NULL, '${now}'),
+    ('backlog.filterType', '"release"', 'enum', 'backlog', 'Backlog Filter Type', 'How to filter features for estimation', '"release"', '["release","team_location","epic","tag","custom_field"]', '${now}'),
+    ('estimation.matrix', '{}', 'object', 'estimation', 'Estimation Matrix', 'Scope/Complexity/Unknowns lookup', '{}', NULL, '${now}');
+  `);
 
   return { db, sqlite };
 }

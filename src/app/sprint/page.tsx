@@ -13,14 +13,14 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Zap, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getConfig } from "@/lib/config";
+import { useConfig } from "@/hooks/use-config";
 import type { AhaIteration } from "@/lib/aha-types";
 
 function SprintListPageContent() {
-  const config = getConfig();
-  const sprintMode = config.sprints.mode;
+  const { data: config } = useConfig();
+  const sprintMode = config?.sprints.mode ?? "both";
   const [view, setView] = useState<"iterations" | "releases">(
-    sprintMode === "releases" ? "releases" : config.sprints.defaultView
+    sprintMode === "releases" ? "releases" : (config?.sprints.defaultView ?? "iterations")
   );
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
   const { data: iterationsData, isLoading: iterationsLoading } = useIterations();

@@ -272,25 +272,143 @@ export async function listFeaturesInRelease(
   return features;
 }
 
-/** Fetch ALL features from a product with optional team_location filter. */
+/**
+ * Fetch ALL features from a product with optional team_location filter.
+ * Uses GraphQL v2 API which returns team_location efficiently.
+ * Filters client-side by team_location since the API doesn't support server-side filtering.
+ */
 export async function listFeaturesInProduct(
   productId: string,
-  options?: { teamLocation?: string; unestimatedOnly?: boolean }
+  options?: { teamLocation?: string; unestimatedOnly?: boolean; excludeWorkflowKinds?: string[] }
 ): Promise<AhaFeature[]> {
-  const features = await ahaFetchAllPages<AhaFeature>(
-    `/products/${productId}/features`,
-    "features",
-    {
-      fields:
-        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,team_location,position,created_at",
-    }
+  const allFeatures: AhaFeature[] = [];
+  let page = 1;
+  const perPage = 100;
+  let hasMore = true;
+
+  // Paginate through all features using GraphQL
+  while (hasMore) {
+    const query = `
+      query($projectId: ID!, $page: Int!, $per: Int!) {
+        features(filters: { projectId: $projectId }, page: $page, per: $per) {
+          nodes {
+            id
+            referenceNum
+            name
+            workDone {
+              value
+            }
+            originalEstimate {
+              value
+            }
+            score
+            workflowStatus {
+              id
+              name
+              position
+              color
+              complete
+            }
+            workflowKind {
+              id
+              name
+            }
+            assignedToUser {
+              id
+              name
+              email
+            }
+            tags {
+              name
+            }
+            teamLocation
+            position
+            createdAt
+          }
+          isLastPage
+        }
+      }
+    `;
+
+    const variables = {
+      projectId: productId,
+      page,
+      per: perPage,
+    };
+
+    const result = await ahaGraphQL<{
+      features: {
+        nodes: Array<{
+          id: string;
+          referenceNum: string;
+          name: string;
+          workDone?: { value: number } | null;
+          originalEstimate?: { value: number } | null;
+          score?: number | null;
+          workflowStatus?: {
+            id: string;
+            name: string;
+            position: number;
+            color: string;
+            complete: boolean;
+          };
+          workflowKind?: {
+            id: string;
+            name: string;
+          };
+          assignedToUser?: {
+            id: string;
+            name: string;
+            email: string;
+          } | null;
+          tags?: Array<{ name: string }>;
+          teamLocation?: string;
+          position: number;
+          createdAt: string;
+        }>;
+        isLastPage: boolean;
+      };
+    }>(query, variables);
+
+    // Map GraphQL response to AhaFeature format
+    const mappedFeatures = result.features.nodes.map((node) => ({
+      id: node.id,
+      reference_num: node.referenceNum,
+      name: node.name,
+      work_units: node.workDone?.value ?? null,
+      original_estimate: node.originalEstimate?.value ?? null,
+      score: node.score ?? null,
+      workflow_status: node.workflowStatus,
+      workflow_kind: node.workflowKind,
+      assigned_to_user: node.assignedToUser ?? null,
+      tags: node.tags?.map((t) => t.name) ?? [],
+      team_location: node.teamLocation,
+      position: node.position,
+      created_at: node.createdAt,
+    }));
+
+    allFeatures.push(...mappedFeatures);
+
+    hasMore = !result.features.isLastPage;
+    page++;
+  }
+
+  // Deduplicate by feature ID (API sometimes returns duplicates)
+  const uniqueFeatures = Array.from(
+    new Map(allFeatures.map((f) => [f.id, f])).values()
   );
 
-  let filtered = features;
-
   // Filter by team_location if specified
+  let filtered = uniqueFeatures;
   if (options?.teamLocation) {
     filtered = filtered.filter((f) => f.team_location === options.teamLocation);
+  }
+
+  // Exclude certain workflow kinds if specified
+  if (options?.excludeWorkflowKinds && options.excludeWorkflowKinds.length > 0) {
+    filtered = filtered.filter(
+      (f) => !f.workflow_kind || !options.excludeWorkflowKinds!.includes(f.workflow_kind.name)
+    );
   }
 
   // Filter unestimated if requested
@@ -301,22 +419,52 @@ export async function listFeaturesInProduct(
   return filtered;
 }
 
-/** Get unique team_location values from all features in a product. */
+/**
+ * Get unique team_location values from all features in a product.
+ * Uses GraphQL v2 API to efficiently fetch team_location for all features.
+ */
 export async function listTeamLocations(productId: string): Promise<string[]> {
-  const features = await ahaFetchAllPages<AhaFeature>(
-    `/products/${productId}/features`,
-    "features",
-    {
-      fields: "team_location",
-    }
-  );
-
   const locations = new Set<string>();
-  features.forEach((feature) => {
-    if (feature.team_location) {
-      locations.add(feature.team_location);
-    }
-  });
+  let page = 1;
+  const perPage = 200;
+  let hasMore = true;
+
+  // Paginate through all features using GraphQL
+  while (hasMore) {
+    const query = `
+      query($projectId: ID!, $page: Int!, $per: Int!) {
+        features(filters: { projectId: $projectId }, page: $page, per: $per) {
+          nodes {
+            teamLocation
+          }
+          isLastPage
+        }
+      }
+    `;
+
+    const variables = {
+      projectId: productId,
+      page,
+      per: perPage,
+    };
+
+    const result = await ahaGraphQL<{
+      features: {
+        nodes: Array<{ teamLocation?: string }>;
+        isLastPage: boolean;
+      };
+    }>(query, variables);
+
+    // Collect unique team_location values
+    result.features.nodes.forEach((node) => {
+      if (node.teamLocation) {
+        locations.add(node.teamLocation);
+      }
+    });
+
+    hasMore = !result.features.isLastPage;
+    page++;
+  }
 
   return Array.from(locations).sort((a, b) =>
     a.localeCompare(b, undefined, { sensitivity: "base" })
@@ -329,7 +477,7 @@ export async function getFeature(featureId: string): Promise<AhaFeature> {
     {
       params: {
         fields:
-          "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at,updated_at,description,requirements,release",
+          "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,team_location,position,created_at,updated_at,description,requirements,release",
       },
     }
   );
@@ -409,11 +557,11 @@ function mapGqlIteration(gql: GqlIteration): AhaIteration {
   };
 }
 
-import { getConfig } from "./config";
+import { getConfigSync } from "./config";
 
 function mapGqlFeature(rec: GqlIteration["records"][number]): AhaFeature {
   const ws = rec.workflowStatus;
-  const completeMeanings = new Set(getConfig().workflow.completeMeanings);
+  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
   return {
     id: rec.id,
     reference_num: rec.referenceNum,

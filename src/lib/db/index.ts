@@ -1,8 +1,9 @@
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
+import Database, { type Database as DatabaseType } from "better-sqlite3";
 import * as schema from "./schema";
 import { existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
+import { seedOrgConfig } from "./migrations/seed-org-config";
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
@@ -104,6 +105,17 @@ export function getDb() {
       is_holiday INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS org_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      label TEXT NOT NULL,
+      description TEXT,
+      default_value TEXT,
+      options TEXT,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // Migration: add new columns to sprint_snapshots for existing databases
@@ -114,5 +126,48 @@ export function getDb() {
     sqlite.exec(`ALTER TABLE sprint_snapshots ADD COLUMN point_source TEXT NOT NULL DEFAULT 'score'`);
   } catch { /* column already exists */ }
 
+  // Auto-migrate file config to database on first run
+  migrateFileConfigIfNeeded(sqlite);
+
   return _db;
+}
+
+/**
+ * Checks if config has been migrated to database.
+ * If not, attempts to load from aha-smt.config.ts and seeds database.
+ * Falls back to DEFAULT_CONFIG if no file config exists.
+ */
+function migrateFileConfigIfNeeded(sqlite: DatabaseType): void {
+  const checkStmt = sqlite.prepare(
+    "SELECT value FROM app_settings WHERE key = ? LIMIT 1"
+  );
+  const existing = checkStmt.get("__config_migrated");
+
+  if (existing) return; // Already migrated
+
+  try {
+    // Try loading file-based config
+    let fileConfig = {};
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      fileConfig = require("@config").default ?? require("@config");
+      console.log("✓ Found aha-smt.config.ts, migrating to database...");
+    } catch {
+      console.log("✓ No file config found, seeding with defaults...");
+    }
+
+    // Seed database with config
+    seedOrgConfig(sqlite, fileConfig);
+
+    // Mark as migrated
+    const insertStmt = sqlite.prepare(
+      "INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)"
+    );
+    insertStmt.run("__config_migrated", "true", new Date().toISOString());
+
+    console.log("✓ Configuration migrated to database successfully");
+  } catch (error) {
+    console.error("Failed to migrate config to database:", error);
+    // Non-fatal — app will fall back to DEFAULT_CONFIG
+  }
 }

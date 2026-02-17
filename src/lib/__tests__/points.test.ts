@@ -78,7 +78,7 @@ describe("isUnestimated", () => {
 
 describe("getPoints with custom config", () => {
   function mockSource(source: configModule.PointField[]) {
-    vi.spyOn(configModule, "getConfig").mockReturnValue({
+    vi.spyOn(configModule, "getConfigSync").mockReturnValue({
       ...configModule.DEFAULT_CONFIG,
       points: { ...configModule.DEFAULT_CONFIG.points, source },
     });

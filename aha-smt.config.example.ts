@@ -26,6 +26,11 @@ export default defineConfig({
     // You can find this in the URL when viewing your product in Aha!
     // Example: https://yourcompany.aha.io/develop/products/DEV → product ID is in the API response
     // teamProductId: "YOUR_DEVELOP_PRODUCT_ID",
+
+    // Exclude certain workflow kinds from estimation (e.g., Bugs, Test Cases).
+    // These will not appear in the estimation queue.
+    // Example: excludeWorkflowKinds: ["Bug", "Test"],
+    // excludeWorkflowKinds: [],
   },
   estimation: {
     matrix: {

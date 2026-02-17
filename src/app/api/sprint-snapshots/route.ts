@@ -35,7 +35,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const primarySource = getConfig().points.source[0] ?? "original_estimate";
+    const { loadConfigFromDb } = await import("@/lib/config.server");
+    const { setConfig } = await import("@/lib/config");
+    const config = await loadConfigFromDb();
+    setConfig(config);
+    const primarySource = config.points.source[0] ?? "original_estimate";
     let features: any[];
     let sourceType: "release" | "iteration";
     let pointSource: string;

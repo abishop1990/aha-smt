@@ -32,6 +32,8 @@ export interface AhaSMTConfig {
     customFieldKey?: string;
     /** Product ID to use when filterType is team_location (e.g., your Develop product ID). */
     teamProductId?: string;
+    /** Exclude these workflow kinds from estimation (e.g., ["Bug", "Test"]). */
+    excludeWorkflowKinds?: string[];
   };
 }
 
@@ -114,23 +116,56 @@ function deepMerge(target: any, source: any): any {
   return result;
 }
 
-let _config: AhaSMTConfig | null = null;
+let _clientConfig: AhaSMTConfig | null = null;
 
+/**
+ * Client-safe synchronous config getter.
+ * Returns cached config or DEFAULT_CONFIG.
+ * Server-side: This will be populated by route handlers calling loadConfigFromDb().
+ * Client-side: Components should use the useConfig() hook instead.
+ */
 export function getConfig(): AhaSMTConfig {
-  if (_config) return _config;
+  if (_clientConfig) return _clientConfig;
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const userConfig = require("@config").default ?? require("@config");
-    _config = deepMerge(DEFAULT_CONFIG, userConfig);
-  } catch {
-    _config = { ...DEFAULT_CONFIG };
+  // Try loading file config (backward compat for server-side)
+  if (typeof window === "undefined") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fileConfig = require("@config").default ?? require("@config");
+      _clientConfig = deepMerge(DEFAULT_CONFIG, fileConfig);
+      return _clientConfig!;
+    } catch {
+      // No file config
+    }
   }
 
-  return _config!;
+  // Cache and return defaults
+  _clientConfig = { ...DEFAULT_CONFIG };
+  return _clientConfig;
+}
+
+/**
+ * Sets the cached config (called by server-side loader).
+ * @internal
+ */
+export function setConfig(config: AhaSMTConfig): void {
+  _clientConfig = config;
+}
+
+/**
+ * Synchronous getter that uses cached value.
+ * Alias for getConfig() for backward compatibility.
+ */
+export function getConfigSync(): AhaSMTConfig {
+  return getConfig();
+}
+
+/** Clear cache (for when config is updated via Settings UI). */
+export function invalidateConfig(): void {
+  _clientConfig = null;
 }
 
 /** Reset singleton — for tests only. */
 export function __resetConfig(): void {
-  _config = null;
+  _clientConfig = null;
 }

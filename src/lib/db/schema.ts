@@ -100,3 +100,17 @@ export const daysOff = sqliteTable("days_off", {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
 });
+
+export const orgConfig = sqliteTable("org_config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // JSON-serialized
+  type: text("type").notNull(), // "string" | "number" | "array" | "object" | "enum"
+  category: text("category").notNull(), // "backlog" | "points" | "estimation" | "sprints" | "workflow"
+  label: text("label").notNull(),
+  description: text("description"),
+  defaultValue: text("default_value"),
+  options: text("options"), // For enums, JSON array
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});

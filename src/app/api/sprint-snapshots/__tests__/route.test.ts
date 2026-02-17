@@ -22,16 +22,16 @@ vi.mock("@/lib/env", () => ({
   getEnv: vi.fn(() => ({ AHA_TEAM_PRODUCT_ID: "team-1" })),
 }));
 
-vi.mock("@/lib/config", () => ({
-  getConfig: vi.fn(() => ({
+vi.mock("@/lib/config", () => {
+  const mockConfig = {
     points: {
       source: ["original_estimate", "score"],
       scale: [1, 2, 3, 5, 8, 13, 21],
       defaultPerDay: 1,
     },
     sprints: {
-      mode: "both",
-      defaultView: "iterations",
+      mode: "both" as const,
+      defaultView: "iterations" as const,
     },
     workflow: {
       completeMeanings: ["DONE", "SHIPPED"],
@@ -39,9 +39,47 @@ vi.mock("@/lib/config", () => ({
     estimation: {
       matrix: {},
     },
-  })),
-  __resetConfig: vi.fn(),
-}));
+    backlog: {
+      filterType: "release" as const,
+    },
+  };
+
+  return {
+    DEFAULT_CONFIG: mockConfig,
+    getConfig: vi.fn(() => mockConfig),
+    getConfigSync: vi.fn(() => mockConfig),
+    setConfig: vi.fn(),
+    __resetConfig: vi.fn(),
+  };
+});
+
+vi.mock("@/lib/config.server", () => {
+  const mockConfig = {
+    points: {
+      source: ["original_estimate", "score"],
+      scale: [1, 2, 3, 5, 8, 13, 21],
+      defaultPerDay: 1,
+    },
+    sprints: {
+      mode: "both" as const,
+      defaultView: "iterations" as const,
+    },
+    workflow: {
+      completeMeanings: ["DONE", "SHIPPED"],
+    },
+    estimation: {
+      matrix: {},
+    },
+    backlog: {
+      filterType: "release" as const,
+    },
+  };
+
+  return {
+    loadConfigFromDb: vi.fn(async () => mockConfig),
+    invalidateServerConfig: vi.fn(),
+  };
+});
 
 import { GET, POST } from "../route";
 import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";

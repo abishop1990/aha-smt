@@ -1,4 +1,4 @@
-import { getConfig } from "./config";
+import { getConfigSync } from "./config";
 
 export type CriteriaLevel = "L" | "M" | "H";
 
@@ -10,12 +10,12 @@ export interface EstimationCriteria {
 
 export function getSuggestedPoints(criteria: EstimationCriteria): number {
   const key = `${criteria.scope}-${criteria.complexity}-${criteria.unknowns}`;
-  return getConfig().estimation.matrix[key] ?? 5;
+  return getConfigSync().estimation.matrix[key] ?? 5;
 }
 
 /** Returns the configured point scale for estimation UI. */
 export function getPointScale(): number[] {
-  return getConfig().points.scale;
+  return getConfigSync().points.scale;
 }
 
 export const NAV_ITEMS = [

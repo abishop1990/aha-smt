@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listFeaturesInProduct } from "@/lib/aha-client";
+import { getConfig } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const teamLocation = searchParams.get("teamLocation");
     const unestimatedOnly = searchParams.get("unestimated") === "true";
 
+    // Get config for workflow kind exclusions
+    const { loadConfigFromDb } = await import("@/lib/config.server");
+    const { setConfig } = await import("@/lib/config");
+    const config = await loadConfigFromDb();
+    setConfig(config);
+
     const features = await listFeaturesInProduct(productId, {
       teamLocation: teamLocation ?? undefined,
       unestimatedOnly,
+      excludeWorkflowKinds: config.backlog.excludeWorkflowKinds,
     });
 
     return NextResponse.json({
