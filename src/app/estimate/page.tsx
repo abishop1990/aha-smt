@@ -5,10 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
-import { useFeaturesByLocation } from "@/hooks/use-features-by-location";
 import { useFeaturesByTag } from "@/hooks/use-features-by-tag";
 import { useFeaturesByEpic } from "@/hooks/use-features-by-epic";
-import { useTeamLocations } from "@/hooks/use-team-locations";
+import { useProductFeatures } from "@/hooks/use-product-features";
 import { useConfig } from "@/hooks/use-config";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
@@ -30,13 +29,21 @@ function EstimatePageContent() {
   const epicId = config?.backlog.epicId ?? null;
 
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
-  const { data: teamLocationsData, isLoading: teamLocationsLoading } = useTeamLocations(
-    filterType === "team_location" ? teamProductId : null
+
+  // For team_location mode: fetch all product features in one pass.
+  // team_locations are derived from the response, eliminating the sequential waterfall
+  // (previously: useTeamLocations → wait → useFeaturesByLocation).
+  const productFeatures = useProductFeatures(
+    filterType === "team_location" ? teamProductId : null,
+    { unestimatedOnly: true }
   );
 
   // Determine which filter to use based on config
   const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
   const [selectedTeamLocation, setSelectedTeamLocation] = useState<string | null>(null);
+
+  // Derive team_locations from product features (no separate API call needed)
+  const teamLocations = productFeatures.data?.team_locations ?? null;
 
   // Set defaults when data loads
   useEffect(() => {
@@ -44,23 +51,18 @@ function EstimatePageContent() {
       const defaultRelease =
         releasesData.releases.find((r) => r.parking_lot) ?? releasesData.releases[0];
       if (defaultRelease) setSelectedReleaseId(defaultRelease.id);
-    } else if (filterType === "team_location" && teamLocationsData && !selectedTeamLocation) {
+    } else if (filterType === "team_location" && teamLocations && !selectedTeamLocation) {
       // Default to "Prioritized backlog" if available, otherwise first option
-      const prioritizedBacklog = teamLocationsData.team_locations.find(
+      const prioritizedBacklog = teamLocations.find(
         (loc) => loc === "Prioritized backlog"
       );
-      setSelectedTeamLocation(prioritizedBacklog ?? teamLocationsData.team_locations[0] ?? null);
+      setSelectedTeamLocation(prioritizedBacklog ?? teamLocations[0] ?? null);
     }
-  }, [filterType, releasesData, teamLocationsData, selectedReleaseId, selectedTeamLocation]);
+  }, [filterType, releasesData, teamLocations, selectedReleaseId, selectedTeamLocation]);
 
   // Fetch features based on filter type
   const releaseFeatures = useFeatures(
     filterType === "release" ? selectedReleaseId : null,
-    { unestimatedOnly: true }
-  );
-  const locationFeatures = useFeaturesByLocation(
-    filterType === "team_location" ? teamProductId : null,
-    selectedTeamLocation,
     { unestimatedOnly: true }
   );
 
@@ -74,11 +76,29 @@ function EstimatePageContent() {
     { unestimatedOnly: true }
   );
 
-  const { data: featuresData, isLoading: featuresLoading } =
-    filterType === "team_location" ? locationFeatures :
-    filterType === "tag" ? tagFeatures :
-    filterType === "epic" ? epicFeatures :
-    releaseFeatures;
+  // For team_location mode, filter client-side from already-loaded product features.
+  // This is instant since the data is already in memory.
+  const locationFilteredFeatures = useMemo(() => {
+    if (!productFeatures.data) return null;
+    const filtered = selectedTeamLocation
+      ? productFeatures.data.features.filter(
+          (f) => f.team_location === selectedTeamLocation
+        )
+      : productFeatures.data.features;
+    return { features: filtered, total: filtered.length };
+  }, [productFeatures.data, selectedTeamLocation]);
+
+  const featuresData =
+    filterType === "team_location" ? locationFilteredFeatures :
+    filterType === "tag" ? tagFeatures.data :
+    filterType === "epic" ? epicFeatures.data :
+    releaseFeatures.data;
+
+  const featuresLoading =
+    filterType === "team_location" ? productFeatures.isLoading :
+    filterType === "tag" ? tagFeatures.isLoading :
+    filterType === "epic" ? epicFeatures.isLoading :
+    releaseFeatures.isLoading;
 
   // True while we haven't yet resolved which filter target to fetch.
   // This covers the gap between data arriving and the useEffect setting
@@ -86,7 +106,7 @@ function EstimatePageContent() {
   const selectionPending =
     configLoading ||
     (filterType === "release" && (releasesLoading || !selectedReleaseId)) ||
-    (filterType === "team_location" && (teamLocationsLoading || !selectedTeamLocation));
+    (filterType === "team_location" && (productFeatures.isLoading || !selectedTeamLocation));
 
   const isLoading = selectionPending || featuresLoading;
 
@@ -239,7 +259,7 @@ function EstimatePageContent() {
         </div>
       )}
 
-      {filterType === "team_location" && teamLocationsData && (
+      {filterType === "team_location" && teamLocations && (
         <div className="flex items-center gap-3">
           <label htmlFor="location-select" className="text-sm font-medium text-text-primary">
             Backlog:
@@ -250,7 +270,7 @@ function EstimatePageContent() {
             onChange={(e) => setSelectedTeamLocation(e.target.value)}
             className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            {teamLocationsData.team_locations.map((location) => (
+            {teamLocations.map((location) => (
               <option key={location} value={location}>
                 {location}
               </option>

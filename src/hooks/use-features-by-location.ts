@@ -5,6 +5,7 @@ import type { AhaFeature } from "@/lib/aha-types";
 
 interface FeaturesResponse {
   features: AhaFeature[];
+  team_locations: string[];
   total: number;
 }
 
@@ -25,5 +26,6 @@ export function useFeaturesByLocation(
       return res.json();
     },
     enabled: !!productId && !!teamLocation,
+    staleTime: 5 * 60 * 1000, // 5 minutes — product feature lists are expensive to fetch
   });
 }

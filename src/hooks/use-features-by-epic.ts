@@ -22,5 +22,6 @@ export function useFeaturesByEpic(
       return res.json();
     },
     enabled: !!epicRef,
+    staleTime: 5 * 60 * 1000,
   });
 }

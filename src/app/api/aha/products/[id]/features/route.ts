@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listFeaturesInProduct } from "@/lib/aha-client";
-import { getConfig } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +32,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
       excludeWorkflowKinds: config.backlog.excludeWorkflowKinds,
     });
 
+    // Extract unique team_locations from the features as a free by-product
+    const team_locations = [...new Set(
+      features.map((f) => f.team_location).filter((loc): loc is string => !!loc)
+    )].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
     return NextResponse.json({
       features,
+      team_locations,
       total: features.length,
     });
   } catch (error) {

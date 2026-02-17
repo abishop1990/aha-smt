@@ -24,5 +24,6 @@ export function useFeaturesByTag(
       return res.json();
     },
     enabled: !!productId && !!tag,
+    staleTime: 5 * 60 * 1000,
   });
 }

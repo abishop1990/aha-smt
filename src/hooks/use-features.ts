@@ -20,6 +20,7 @@ export function useFeatures(releaseId: string | null, options?: { unestimatedOnl
       return res.json();
     },
     enabled: !!releaseId,
+    staleTime: 5 * 60 * 1000, // 5 minutes — feature lists are expensive to fetch
   });
 }
 

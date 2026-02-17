@@ -302,7 +302,7 @@ export async function listFeaturesInProduct(
 ): Promise<AhaFeature[]> {
   const allFeatures: AhaFeature[] = [];
   let page = 1;
-  const perPage = 100;
+  const perPage = 200;
   let hasMore = true;
 
   // Paginate through all features using GraphQL
