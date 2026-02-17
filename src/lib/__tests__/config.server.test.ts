@@ -390,6 +390,32 @@ describe("loadConfigFromDb env var parsing", () => {
     expect(config.backlog.excludeWorkflowKinds).toEqual(["Bug"]);
   });
 
+  it("parses BACKLOG_TAG_FILTER from env", async () => {
+    const mockGetEnv = vi.mocked(getEnv);
+    mockGetEnv.mockReturnValue({
+      AHA_DOMAIN: "https://test.aha.io",
+      AHA_API_TOKEN: "test-token",
+      BACKLOG_TAG_FILTER: "frontend",
+    } as any);
+
+    const config = await loadConfigFromDb();
+
+    expect(config.backlog.tagFilter).toBe("frontend");
+  });
+
+  it("parses BACKLOG_EPIC_ID from env", async () => {
+    const mockGetEnv = vi.mocked(getEnv);
+    mockGetEnv.mockReturnValue({
+      AHA_DOMAIN: "https://test.aha.io",
+      AHA_API_TOKEN: "test-token",
+      BACKLOG_EPIC_ID: "PRJ-E-1",
+    } as any);
+
+    const config = await loadConfigFromDb();
+
+    expect(config.backlog.epicId).toBe("PRJ-E-1");
+  });
+
   it("gracefully handles getEnv throwing", async () => {
     const mockGetEnv = vi.mocked(getEnv);
     mockGetEnv.mockImplementation(() => {
