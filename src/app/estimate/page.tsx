@@ -110,7 +110,10 @@ function EstimatePageContent() {
 
   const updateEstimate = useUpdateFeatureEstimate();
 
-  const features = useMemo(() => featuresData?.features ?? [], [featuresData]);
+  const features = useMemo(
+    () => (featuresData?.features ?? []).filter((f) => !f.workflow_status?.complete),
+    [featuresData]
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [criteria, setCriteria] = useState<EstimationCriteria>({
     scope: "M",
