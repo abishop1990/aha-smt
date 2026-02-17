@@ -31,8 +31,7 @@ function EstimatePageContent() {
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
 
   // For team_location mode: fetch all product features in one pass.
-  // team_locations are derived from the response, eliminating the sequential waterfall
-  // (previously: useTeamLocations → wait → useFeaturesByLocation).
+  // team_locations are derived from the response (no separate hook needed).
   const productFeatures = useProductFeatures(
     filterType === "team_location" ? teamProductId : null,
     { unestimatedOnly: true }
