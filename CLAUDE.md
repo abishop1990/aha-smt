@@ -41,9 +41,12 @@ Aha! proxy routes live under `src/app/api/aha/`. Local SQLite routes (standups, 
 ### File layout
 
 ```
-src/lib/            Core: aha-client, aha-cache, aha-rate-limiter, env, constants, types, db/, config.ts, config.server.ts, points.ts
-src/hooks/          React Query hooks (use-features, use-releases, etc.)
-src/components/     ui/ layout/ shared/ backlog/ estimate/ sprint/ metrics/ standup/
+src/lib/            Core: aha-client, aha-cache, aha-rate-limiter, env, constants, types, db/,
+                    config.ts, config.server.ts, points.ts, capacity.ts, standup-parsers.ts, utils.ts
+src/hooks/          React Query hooks (use-features, use-releases, use-config, use-settings,
+                    use-iterations, use-iteration-features, use-sprint-metrics, use-sprint-burndown,
+                    use-product-features, use-standups, use-sprint-snapshots, etc.)
+src/components/     ui/ layout/ shared/ backlog/ estimate/ sprint/ metrics/ standup/ settings/
 src/app/api/        Route handlers (Aha! proxy + local SQLite)
 src/app/            Pages (dashboard, backlog, estimate, sprint, standup, metrics, settings)
 benchmarks/         Vitest benchmarks + live API benchmark script
