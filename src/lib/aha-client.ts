@@ -568,9 +568,8 @@ function mapGqlIteration(gql: GqlIteration): AhaIteration {
 
 import { getConfigSync } from "./config";
 
-function mapGqlFeature(rec: GqlIteration["records"][number]): AhaFeature {
+function mapGqlFeature(rec: GqlIteration["records"][number], completeMeanings: Set<string>): AhaFeature {
   const ws = rec.workflowStatus;
-  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
   return {
     id: rec.id,
     reference_num: rec.referenceNum,
@@ -653,7 +652,8 @@ export async function listFeaturesInIteration(
 
   if (!iteration) return [];
 
-  const features = iteration.records.map(mapGqlFeature);
+  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
+  const features = iteration.records.map((rec) => mapGqlFeature(rec, completeMeanings));
 
   if (options?.unestimatedOnly) {
     return features.filter(isUnestimated);

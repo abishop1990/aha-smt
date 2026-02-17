@@ -8,11 +8,11 @@ type UpdatePayload =
   | Partial<AhaSMTConfig>  // For nested updates (e.g., { estimation: { matrix: {...} } })
   | { key: string; value: unknown };  // For simple key-value updates (e.g., { key: "backlog.filterType", value: "release" })
 
-function isKeyValueUpdate(payload: UpdatePayload): payload is { key: string; value: unknown } {
+export function isKeyValueUpdate(payload: UpdatePayload): payload is { key: string; value: unknown } {
   return "key" in payload && "value" in payload;
 }
 
-function keyValueToNestedConfig(key: string, value: unknown): Partial<AhaSMTConfig> {
+export function keyValueToNestedConfig(key: string, value: unknown): Partial<AhaSMTConfig> {
   const parts = key.split(".");
   const result: any = {};
   let current = result;
