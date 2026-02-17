@@ -34,6 +34,10 @@ export interface AhaSMTConfig {
     teamProductId?: string;
     /** Exclude these workflow kinds from estimation (e.g., ["Bug", "Test"]). */
     excludeWorkflowKinds?: string[];
+    /** Tag name to filter by when filterType is "tag". */
+    tagFilter?: string;
+    /** Epic reference number (e.g. "PRJ-E-1") when filterType is "epic". */
+    epicId?: string;
   };
 }
 

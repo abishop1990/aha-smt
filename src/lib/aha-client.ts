@@ -273,13 +273,32 @@ export async function listFeaturesInRelease(
 }
 
 /**
+ * Fetch ALL features for a given epic reference number.
+ */
+export async function listFeaturesForEpic(
+  epicRef: string,
+  options?: { unestimatedOnly?: boolean }
+): Promise<AhaFeature[]> {
+  const features = await ahaFetchAllPages<AhaFeature>(
+    `/epics/${epicRef}/features`,
+    "features",
+    {
+      fields:
+        "id,reference_num,name,score,work_units,original_estimate,workflow_status,assigned_to_user,tags,position,created_at",
+    }
+  );
+  if (options?.unestimatedOnly) return features.filter(isUnestimated);
+  return features;
+}
+
+/**
  * Fetch ALL features from a product with optional team_location filter.
  * Uses GraphQL v2 API which returns team_location efficiently.
  * Filters client-side by team_location since the API doesn't support server-side filtering.
  */
 export async function listFeaturesInProduct(
   productId: string,
-  options?: { teamLocation?: string; unestimatedOnly?: boolean; excludeWorkflowKinds?: string[] }
+  options?: { teamLocation?: string; tag?: string; unestimatedOnly?: boolean; excludeWorkflowKinds?: string[] }
 ): Promise<AhaFeature[]> {
   const allFeatures: AhaFeature[] = [];
   let page = 1;
@@ -417,6 +436,13 @@ export async function listFeaturesInProduct(
   if (options?.excludeWorkflowKinds && options.excludeWorkflowKinds.length > 0) {
     filtered = filtered.filter(
       (f) => !f.workflow_kind || !options.excludeWorkflowKinds!.includes(f.workflow_kind.name)
+    );
+  }
+
+  // Filter by tag if specified (case-insensitive)
+  if (options?.tag) {
+    filtered = filtered.filter((f) =>
+      f.tags?.some((t) => t.toLowerCase() === options.tag!.toLowerCase())
     );
   }
 

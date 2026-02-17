@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures, useUpdateFeatureEstimate } from "@/hooks/use-features";
 import { useFeaturesByLocation } from "@/hooks/use-features-by-location";
+import { useFeaturesByTag } from "@/hooks/use-features-by-tag";
+import { useFeaturesByEpic } from "@/hooks/use-features-by-epic";
 import { useTeamLocations } from "@/hooks/use-team-locations";
 import { useConfig } from "@/hooks/use-config";
 import { EstimationQueue } from "@/components/estimate/estimation-queue";
@@ -24,6 +26,8 @@ function EstimatePageContent() {
   const { data: config } = useConfig();
   const filterType = config?.backlog.filterType ?? "release";
   const teamProductId = config?.backlog.teamProductId ?? null;
+  const tagFilter = config?.backlog.tagFilter ?? null;
+  const epicId = config?.backlog.epicId ?? null;
 
   const { data: releasesData } = useReleases();
   const { data: teamLocationsData } = useTeamLocations(
@@ -60,8 +64,21 @@ function EstimatePageContent() {
     { unestimatedOnly: true }
   );
 
+  const tagFeatures = useFeaturesByTag(
+    filterType === "tag" ? teamProductId : null,
+    filterType === "tag" ? tagFilter : null,
+    { unestimatedOnly: true }
+  );
+  const epicFeatures = useFeaturesByEpic(
+    filterType === "epic" ? epicId : null,
+    { unestimatedOnly: true }
+  );
+
   const { data: featuresData, isLoading } =
-    filterType === "team_location" ? locationFeatures : releaseFeatures;
+    filterType === "team_location" ? locationFeatures :
+    filterType === "tag" ? tagFeatures :
+    filterType === "epic" ? epicFeatures :
+    releaseFeatures;
 
   const updateEstimate = useUpdateFeatureEstimate();
 

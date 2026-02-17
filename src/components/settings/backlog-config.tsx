@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useConfig } from "@/hooks/use-config";
 import { useUpdateConfig } from "@/hooks/use-update-config";
+import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -10,8 +11,8 @@ const WORKFLOW_KIND_OPTIONS = ["Bug", "Test", "Spike", "Chore"];
 const FILTER_TYPE_OPTIONS = [
   { value: "release", label: "By Release (default)" },
   { value: "team_location", label: "By Team Location (Aha Develop)" },
-  { value: "epic", label: "By Epic (future)" },
-  { value: "tag", label: "By Tag (future)" },
+  { value: "epic", label: "By Epic" },
+  { value: "tag", label: "By Tag" },
   { value: "custom_field", label: "By Custom Field (future)" },
 ];
 
@@ -21,12 +22,16 @@ export function BacklogConfig() {
 
   const [filterType, setFilterType] = useState<string>("release");
   const [teamProductId, setTeamProductId] = useState<string>("");
+  const [tagFilter, setTagFilter] = useState<string>("");
+  const [epicId, setEpicId] = useState<string>("");
   const [excludeWorkflowKinds, setExcludeWorkflowKinds] = useState<string[]>([]);
 
   useEffect(() => {
     if (config?.backlog) {
       setFilterType(config.backlog.filterType);
       setTeamProductId(config.backlog.teamProductId ?? "");
+      setTagFilter(config.backlog.tagFilter ?? "");
+      setEpicId(config.backlog.epicId ?? "");
       setExcludeWorkflowKinds(config.backlog.excludeWorkflowKinds ?? []);
     }
   }, [config]);
@@ -37,6 +42,8 @@ export function BacklogConfig() {
       backlog: {
         filterType: newFilterType as "release" | "team_location" | "epic" | "tag" | "custom_field",
         teamProductId: newFilterType === "team_location" ? teamProductId : undefined,
+        tagFilter: newFilterType === "tag" ? tagFilter : undefined,
+        epicId: newFilterType === "epic" ? epicId : undefined,
         excludeWorkflowKinds,
       },
     });
@@ -53,12 +60,36 @@ export function BacklogConfig() {
     });
   };
 
+  const handleTagFilterChange = (newTag: string) => {
+    setTagFilter(newTag);
+    updateConfig({
+      backlog: {
+        filterType: filterType as "release" | "team_location" | "epic" | "tag" | "custom_field",
+        tagFilter: newTag,
+        excludeWorkflowKinds,
+      },
+    });
+  };
+
+  const handleEpicIdChange = (newEpicId: string) => {
+    setEpicId(newEpicId);
+    updateConfig({
+      backlog: {
+        filterType: filterType as "release" | "team_location" | "epic" | "tag" | "custom_field",
+        epicId: newEpicId,
+        excludeWorkflowKinds,
+      },
+    });
+  };
+
   const handleExcludeWorkflowKindsChange = (selected: string[]) => {
     setExcludeWorkflowKinds(selected);
     updateConfig({
       backlog: {
         filterType: filterType as "release" | "team_location" | "epic" | "tag" | "custom_field",
         teamProductId: filterType === "team_location" ? teamProductId : undefined,
+        tagFilter: filterType === "tag" ? tagFilter : undefined,
+        epicId: filterType === "epic" ? epicId : undefined,
         excludeWorkflowKinds: selected,
       },
     });
@@ -125,6 +156,36 @@ export function BacklogConfig() {
             disabled={isPending}
             placeholder="e.g., 7504415798145038653"
             className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      )}
+
+      {/* Tag filter (conditional) */}
+      {filterType === "tag" && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Tag Name</label>
+          <p className="text-xs text-text-muted mb-2">Filter features by this tag (case-insensitive)</p>
+          <Input
+            value={tagFilter}
+            onChange={(e) => handleTagFilterChange(e.target.value)}
+            disabled={isPending}
+            placeholder="e.g. frontend"
+            className="max-w-xs"
+          />
+        </div>
+      )}
+
+      {/* Epic filter (conditional) */}
+      {filterType === "epic" && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Epic Reference</label>
+          <p className="text-xs text-text-muted mb-2">The epic reference number (e.g. PRJ-E-1)</p>
+          <Input
+            value={epicId}
+            onChange={(e) => handleEpicIdChange(e.target.value)}
+            disabled={isPending}
+            placeholder="e.g. PRJ-E-1"
+            className="max-w-xs"
           />
         </div>
       )}

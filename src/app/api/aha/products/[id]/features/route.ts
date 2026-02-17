@@ -17,6 +17,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { id: productId } = await context.params;
     const searchParams = request.nextUrl.searchParams;
     const teamLocation = searchParams.get("teamLocation");
+    const tag = searchParams.get("tag");
     const unestimatedOnly = searchParams.get("unestimated") === "true";
 
     // Get config for workflow kind exclusions
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const features = await listFeaturesInProduct(productId, {
       teamLocation: teamLocation ?? undefined,
+      tag: tag ?? undefined,
       unestimatedOnly,
       excludeWorkflowKinds: config.backlog.excludeWorkflowKinds,
     });
