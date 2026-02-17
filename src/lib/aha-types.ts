@@ -56,6 +56,16 @@ export interface AhaRelease {
   project?: { id: string; name: string };
 }
 
+export interface AhaEpic {
+  id: string;
+  reference_num: string;
+  name: string;
+  start_date?: string | null;
+  due_date?: string | null;
+  workflow_status?: { name: string; color?: string; complete?: boolean };
+  progress?: number;
+}
+
 export interface AhaProduct {
   id: string;
   reference_prefix: string;

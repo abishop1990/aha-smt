@@ -9,6 +9,7 @@ import {
   Zap,
   Users,
   BarChart3,
+  Map,
   Settings,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -22,6 +23,7 @@ const ICON_MAP = {
   Zap,
   Users,
   BarChart3,
+  Map,
   Settings,
 } as const;
 

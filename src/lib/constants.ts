@@ -25,5 +25,6 @@ export const NAV_ITEMS = [
   { href: "/sprint", label: "Sprint", icon: "Zap" },
   { href: "/standup", label: "Standup", icon: "Users" },
   { href: "/metrics", label: "Metrics", icon: "BarChart3" },
+  { href: "/roadmap", label: "Roadmap", icon: "Map" },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ] as const;

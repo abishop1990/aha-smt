@@ -8,6 +8,7 @@ import type {
   AhaProduct,
   AhaTeam,
   AhaUser,
+  AhaEpic,
 } from "./aha-types";
 import { isUnestimated } from "./points";
 
@@ -745,4 +746,12 @@ export async function updateFeatureEstimate(
   invalidateCache(`/features/${featureId}`);
   invalidateCache("/products/");
   return response.feature;
+}
+
+export async function listEpicsForProduct(productId: string): Promise<AhaEpic[]> {
+  const res = await ahaFetch<{ epics?: AhaEpic[] }>(
+    `/products/${productId}/epics`,
+    { params: { fields: "id,reference_num,name,start_date,due_date,workflow_status,progress" } }
+  );
+  return res.epics ?? [];
 }
