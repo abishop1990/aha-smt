@@ -18,18 +18,13 @@ import {
 
 export default function DashboardPage() {
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
-  const today = new Date().toISOString().split("T")[0];
-  const latestRelease =
+  const activeRelease =
     releasesData?.releases?.find(
-      (r) =>
-        !r.parking_lot &&
-        r.start_date &&
-        r.release_date &&
-        r.start_date <= today &&
-        r.release_date >= today
-    ) ?? releasesData?.releases?.[0];
+      (r) => !r.parking_lot && r.status === "in_progress"
+    ) ?? null;
+
   const { data: featuresData, isLoading: featuresLoading } = useFeatures(
-    latestRelease?.id ?? null
+    activeRelease?.id ?? null
   );
   const { data: snapshotsData } = useSprintSnapshots();
 
@@ -46,87 +41,92 @@ export default function DashboardPage() {
         )
       : 0;
 
-  const isLoading = releasesLoading || featuresLoading;
+  const isLoading = releasesLoading || (!!activeRelease && featuresLoading);
+  const releasesLoaded = !releasesLoading && releasesData !== undefined;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
         <p className="text-text-secondary mt-1">
-          {latestRelease
-            ? `Current sprint: ${latestRelease.name}`
-            : "Select a product to get started"}
+          {releasesLoading
+            ? "Loading..."
+            : activeRelease
+              ? `Current sprint: ${activeRelease.name}`
+              : "No sprint in progress"}
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-text-secondary">
-              Unestimated
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{unestimated.length}</div>
-            )}
-            <p className="text-xs text-text-muted mt-1">features need points</p>
-          </CardContent>
-        </Card>
+      {/* KPI Cards — only shown when a sprint is active */}
+      {(isLoading || activeRelease) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-text-secondary">
+                Unestimated
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{unestimated.length}</div>
+              )}
+              <p className="text-xs text-text-muted mt-1">features need points</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-text-secondary">
-              Sprint Points
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">{formatPoints(totalPoints)}</div>
-            )}
-            <p className="text-xs text-text-muted mt-1">
-              across {features.length} features
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-text-secondary">
+                Sprint Points
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{formatPoints(totalPoints)}</div>
+              )}
+              <p className="text-xs text-text-muted mt-1">
+                across {features.length} features
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-text-secondary">
-              Completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold">
-                {completedFeatures.length}/{features.length}
-              </div>
-            )}
-            <p className="text-xs text-text-muted mt-1">features done</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-text-secondary">
+                Completed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {completedFeatures.length}/{features.length}
+                </div>
+              )}
+              <p className="text-xs text-text-muted mt-1">features done</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-text-secondary">
-              Avg Velocity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgVelocity}</div>
-            <p className="text-xs text-text-muted mt-1">
-              pts/sprint ({snapshots.length} sprints)
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-text-secondary">
+                Avg Velocity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgVelocity}</div>
+              <p className="text-xs text-text-muted mt-1">
+                pts/sprint ({snapshots.length} sprints)
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -139,7 +139,9 @@ export default function DashboardPage() {
               <div className="flex-1">
                 <h3 className="font-medium">Backlog</h3>
                 <p className="text-sm text-text-secondary">
-                  {unestimated.length} unestimated features
+                  {releasesLoaded && !activeRelease
+                    ? "Browse features"
+                    : `${unestimated.length} unestimated features`}
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-text-muted" />

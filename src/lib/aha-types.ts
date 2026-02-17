@@ -50,6 +50,7 @@ export interface AhaRelease {
   name: string;
   start_date?: string | null;
   release_date?: string | null;
+  status?: "not_started" | "in_progress" | "complete" | string;
   progress: number;
   parking_lot: boolean;
   project?: { id: string; name: string };

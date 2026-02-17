@@ -212,7 +212,7 @@ export async function listReleasesInProduct(productId: string): Promise<AhaRelea
   return ahaFetchAllPages<AhaRelease>(
     `/products/${productId}/releases`,
     "releases",
-    { fields: "id,reference_num,name,start_date,release_date,progress,parking_lot" },
+    { fields: "id,reference_num,name,start_date,release_date,status,progress,parking_lot" },
     120
   );
 }
@@ -220,7 +220,7 @@ export async function listReleasesInProduct(productId: string): Promise<AhaRelea
 export async function getRelease(releaseId: string): Promise<AhaRelease> {
   const response = await ahaFetch<{ release: AhaRelease }>(
     `/releases/${releaseId}`,
-    { params: { fields: "id,reference_num,name,start_date,release_date,progress,parking_lot" }, cacheTtl: 120 }
+    { params: { fields: "id,reference_num,name,start_date,release_date,status,progress,parking_lot" }, cacheTtl: 120 }
   );
   return response.release;
 }
