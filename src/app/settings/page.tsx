@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, X, AlertCircle } from "lucide-react";
 import { useConfig } from "@/hooks/use-config";
 import { useTeamMembers } from "@/hooks/use-team-members";
 import { BacklogConfig } from "@/components/settings/backlog-config";
@@ -31,8 +31,15 @@ const tabs = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>("connection");
+  const [dismissBootstrapCard, setDismissBootstrapCard] = useState(false);
   const queryClient = useQueryClient();
   const { data: config } = useConfig();
+
+  // Detect if using default configuration
+  const isUsingDefaults = config &&
+    config.backlog.filterType === "release" &&
+    !config.backlog.teamProductId &&
+    config.points.scale.length === 7;
 
   // Connection test
   const {
@@ -119,6 +126,39 @@ export default function SettingsPage() {
           Configure connection, organization, and preferences
         </p>
       </div>
+
+      {/* Bootstrap Guidance Card */}
+      {config && isUsingDefaults && !dismissBootstrapCard && (
+        <div className="rounded-lg border border-warning bg-warning/10 p-4">
+          <div className="flex gap-4">
+            <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-text-primary mb-2">
+                Using Default Configuration
+              </h3>
+              <p className="text-sm text-text-secondary mb-3">
+                Customize Aha SMT for your organization by clicking through the tabs above,
+                or set environment variables in .env.local for server deployments.
+              </p>
+              <div className="space-y-1 text-sm text-text-secondary">
+                <p>Quick links:</p>
+                <ul className="space-y-0.5 ml-3">
+                  <li>→ <button className="text-primary hover:underline" onClick={() => setActiveTab("backlog")}>Backlog tab</button> — set your filter type</li>
+                  <li>→ <button className="text-primary hover:underline" onClick={() => setActiveTab("points")}>Points tab</button> — adjust your point scale</li>
+                  <li>→ <button className="text-primary hover:underline" onClick={() => setActiveTab("sprints")}>Sprints tab</button> — choose iterations or releases</li>
+                </ul>
+              </div>
+            </div>
+            <button
+              onClick={() => setDismissBootstrapCard(true)}
+              className="text-text-secondary hover:text-text-primary flex-shrink-0 transition-colors"
+              aria-label="Dismiss guidance"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-border">

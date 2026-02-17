@@ -307,7 +307,7 @@ export async function listFeaturesInProduct(
               name
               position
               color
-              complete
+              internalMeaning
             }
             workflowKind {
               id
@@ -350,7 +350,7 @@ export async function listFeaturesInProduct(
             name: string;
             position: number;
             color: string;
-            complete: boolean;
+            internalMeaning: string | null;
           };
           workflowKind?: {
             id: string;
@@ -371,6 +371,7 @@ export async function listFeaturesInProduct(
     }>(query, variables);
 
     // Map GraphQL response to AhaFeature format
+    const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
     const mappedFeatures = result.features.nodes.map((node) => ({
       id: node.id,
       reference_num: node.referenceNum,
@@ -378,7 +379,15 @@ export async function listFeaturesInProduct(
       work_units: node.workDone?.value ?? null,
       original_estimate: node.originalEstimate?.value ?? null,
       score: node.score ?? null,
-      workflow_status: node.workflowStatus,
+      workflow_status: node.workflowStatus
+        ? {
+            id: node.workflowStatus.id,
+            name: node.workflowStatus.name,
+            color: node.workflowStatus.color,
+            position: node.workflowStatus.position,
+            complete: completeMeanings.has(node.workflowStatus.internalMeaning ?? ""),
+          }
+        : undefined,
       workflow_kind: node.workflowKind,
       assigned_to_user: node.assignedToUser ?? null,
       tags: node.tags?.map((t) => t.name) ?? [],

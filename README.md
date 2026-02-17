@@ -50,30 +50,87 @@ npm run dev
 
 Open [http://localhost:3000/settings](http://localhost:3000/settings) to verify your Aha connection.
 
-### Environment Variables
+## Configuration
 
-| Variable | Required | Description |
+The app supports three layers of configuration, each overriding the previous:
+
+1. **Settings UI** — Primary method for most teams. Configure org settings at `/settings` (stored in SQLite).
+2. **Environment Variables** — For Docker/Kubernetes deployments or to pre-populate settings. All optional.
+3. **File-based Config** — Advanced use case for complex estimation matrices or multi-environment setups. Edit `aha-smt.config.ts` directly.
+
+The precedence order is: **File Config > Environment Variables > Database (Settings UI) > Defaults**
+
+### Settings UI (`/settings`)
+
+The easiest way to configure your org. No deployment needed — changes take effect immediately.
+
+- **Backlog Filter** — Choose how to group features: by Release, Team Location, Epic, Tag, or Custom Field
+- **Points Source** — Which Aha fields to read: Original Estimate, Score, or Work Units (in priority order)
+- **Points Scale** — Valid point values for the estimation picker
+- **Points Per Day** — Default capacity assumption (overridable per team member in Sprint Planning)
+- **Sprint Mode** — Show Iterations, Releases, or both
+- **Workflow Complete Statuses** — Which Aha workflow meanings count as "done" for metrics
+- **Estimation Matrix** — Scope/Complexity/Unknowns lookup table (optional override)
+
+### Environment Variables (Advanced)
+
+Set these in `.env.local` for Docker/Kubernetes deployments. See `.env.example` for all options.
+
+#### Required
+
+| Variable | Description |
+|---|---|
+| `AHA_DOMAIN` | Your Aha subdomain (e.g. `mycompany` for mycompany.aha.io) |
+| `AHA_API_TOKEN` | API key from Aha Settings > Personal > Developer |
+
+#### Optional — Aha Integration
+
+| Variable | Description |
+|---|---|
+| `AHA_DEFAULT_PRODUCT_ID` | Auto-select a product on load |
+| `AHA_TEAM_PRODUCT_ID` | Aha Develop workspace ID for iteration support |
+
+#### Optional — Cache & Database
+
+| Variable | Description | Default |
 |---|---|---|
-| `AHA_DOMAIN` | Yes | Your Aha subdomain (e.g. `mycompany` for mycompany.aha.io) |
-| `AHA_API_TOKEN` | Yes | API key from Aha Settings > Personal > Developer |
-| `AHA_DEFAULT_PRODUCT_ID` | No | Auto-select a product on load |
-| `AHA_TEAM_PRODUCT_ID` | No | Aha Develop team workspace ID for iteration support |
-| `DATABASE_URL` | No | SQLite path (default: `file:./data/aha-smt.db`) |
-| `CACHE_TTL_SECONDS` | No | Server-side cache TTL (default: `60`) |
+| `DATABASE_URL` | SQLite database path | `file:./data/aha-smt.db` |
+| `CACHE_TTL_SECONDS` | Server-side cache TTL (seconds) | `60` |
 
-### Org Configuration
+#### Optional — Organization Configuration
 
-`aha-smt.config.ts` controls org-specific behavior. The file is gitignored — each deployment maintains its own copy. Copy `aha-smt.config.example.ts` to get started; the app works out of the box with defaults.
+These settings pre-populate the Settings UI. The UI values override these if both are set.
 
-| Setting | Default | Description |
+| Variable | Options | Description |
 |---|---|---|
-| `points.source` | `["original_estimate", "score"]` | Priority order for extracting points from a feature. First non-null value wins. |
-| `points.scale` | `[1, 2, 3, 5, 8, 13, 21]` | Point values shown in the estimation UI |
-| `points.defaultPerDay` | `1` | Starting default for points-per-day capacity (overridable in Settings) |
-| `sprints.mode` | `"both"` | `"iterations"`, `"releases"`, or `"both"` |
-| `sprints.defaultView` | `"iterations"` | Default tab when mode is `"both"` |
-| `workflow.completeMeanings` | `["DONE", "SHIPPED"]` | Aha `internalMeaning` values that count as complete |
-| `estimation.matrix` | See example file | Scope/Complexity/Unknowns → Points lookup (keys like `"L-M-H"`) |
+| `BACKLOG_FILTER_TYPE` | `release` \| `team_location` \| `epic` \| `tag` \| `custom_field` | Backlog grouping strategy (default: `release`) |
+| `BACKLOG_TEAM_PRODUCT_ID` | Product ID (number) | Required if `BACKLOG_FILTER_TYPE=team_location` — your Aha Develop workspace ID |
+| `BACKLOG_EXCLUDE_WORKFLOW_KINDS` | Comma-separated kinds | Features to exclude from backlog (e.g. `Bug,Test`) |
+| `POINTS_SOURCE` | Comma-separated fields | Priority order for point extraction: `original_estimate`, `score`, `work_units`. First non-null wins. (default: `original_estimate,score`) |
+| `POINTS_SCALE` | Comma-separated numbers | Valid point values (default: `1,2,3,5,8,13,21`) |
+| `POINTS_DEFAULT_PER_DAY` | Number | Default capacity per team member (default: `1`) |
+| `SPRINTS_MODE` | `iterations` \| `releases` \| `both` | Sprint display mode (default: `both`) |
+| `SPRINTS_DEFAULT_VIEW` | `iterations` \| `releases` | Default tab when mode is `both` (default: `iterations`) |
+| `WORKFLOW_COMPLETE_MEANINGS` | Comma-separated values | Aha workflow meanings that count as "done" (default: `DONE,SHIPPED`) |
+| `ESTIMATION_MATRIX` | JSON string | Estimation lookup table override (advanced; see `aha-smt.config.example.ts` for format) |
+
+### File-based Config (`aha-smt.config.ts`)
+
+For advanced use cases (complex estimation matrices, multi-environment setups), edit `aha-smt.config.ts` at the project root. The file is gitignored — each deployment maintains its own copy.
+
+Copy `aha-smt.config.example.ts` to get started. The app works out of the box with defaults; only include the settings you want to override.
+
+**Precedence:** File config values override environment variables and database settings.
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `points.source` | `string[]` | `["original_estimate", "score"]` | Priority order for extracting points from a feature. First non-null value wins. |
+| `points.scale` | `number[]` | `[1, 2, 3, 5, 8, 13, 21]` | Point values shown in the estimation UI |
+| `points.defaultPerDay` | `number` | `1` | Starting default for points-per-day capacity (overridable in Settings) |
+| `sprints.mode` | `"iterations" \| "releases" \| "both"` | `"both"` | Which sprint types to show |
+| `sprints.defaultView` | `"iterations" \| "releases"` | `"iterations"` | Default tab when mode is `"both"` |
+| `workflow.completeMeanings` | `string[]` | `["DONE", "SHIPPED"]` | Aha `internalMeaning` values that count as complete |
+| `estimation.matrix` | `Record<string, number>` | See example file | Scope/Complexity/Unknowns → Points lookup (keys like `"L-M-H"`) |
 
 Example customization:
 
