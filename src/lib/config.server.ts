@@ -1,7 +1,7 @@
 // Server-only config loader with database access
 import { getDb } from "./db";
 import { orgConfig } from "./db/schema";
-import { DEFAULT_CONFIG, type AhaSMTConfig, type PointField } from "./config";
+import { DEFAULT_CONFIG, deepMerge, type AhaSMTConfig, type PointField } from "./config";
 import { getEnv, type Env } from "./env";
 
 let _serverConfig: AhaSMTConfig | null = null;
@@ -144,27 +144,6 @@ function rowsToConfig(rows: Array<{ key: string; value: string }>): AhaSMTConfig
   }
 
   return deepMerge(DEFAULT_CONFIG, config) as AhaSMTConfig;
-}
-
-function deepMerge(target: any, source: any): any {
-  const result = { ...target };
-  for (const key of Object.keys(source)) {
-    const srcVal = source[key];
-    const tgtVal = target[key];
-    if (
-      srcVal !== null &&
-      typeof srcVal === "object" &&
-      !Array.isArray(srcVal) &&
-      tgtVal !== null &&
-      typeof tgtVal === "object" &&
-      !Array.isArray(tgtVal)
-    ) {
-      result[key] = deepMerge(tgtVal, srcVal);
-    } else {
-      result[key] = srcVal;
-    }
-  }
-  return result;
 }
 
 export function invalidateServerConfig(): void {
