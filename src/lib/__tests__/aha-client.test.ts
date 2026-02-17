@@ -15,6 +15,8 @@ import {
   listIterations,
   getIteration,
   listFeaturesInIteration,
+  listFeaturesInProduct,
+  listFeaturesForEpic,
 } from "@/lib/aha-client";
 import type { AhaFeature, AhaUser, AhaRelease, AhaTeam, AhaProduct } from "@/lib/aha-types";
 
@@ -37,6 +39,29 @@ vi.mock("@/lib/aha-cache", () => ({
 
 vi.mock("@/lib/aha-rate-limiter", () => ({
   rateLimitedFetch: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/config", () => ({
+  getConfigSync: vi.fn(() => ({
+    points: {
+      source: ["original_estimate", "score"],
+      scale: [1, 2, 3, 5, 8, 13, 21],
+      defaultPerDay: 1,
+    },
+    workflow: {
+      completeMeanings: ["DONE", "SHIPPED"],
+    },
+    sprints: {
+      mode: "both",
+      defaultView: "iterations",
+    },
+    estimation: {
+      matrix: {},
+    },
+    backlog: {
+      filterType: "release",
+    },
+  })),
 }));
 
 describe("aha-client", () => {
@@ -1375,6 +1400,250 @@ describe("aha-client", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(mockFetch.mock.calls[0][1].method).toBe("PUT");
       expect(mockFetch.mock.calls[1][1].method).toBe("PUT");
+    });
+  });
+
+  describe("listFeaturesForEpic", () => {
+    const makeEpicFeaturesResponse = (features: AhaFeature[]) => ({
+      ok: true,
+      json: async () => ({
+        features,
+        pagination: { total_pages: 1, current_page: 1 },
+      }),
+    });
+
+    it("fetches features for an epic via REST API", async () => {
+      const mockFeatures: AhaFeature[] = [
+        {
+          id: "feat-1",
+          reference_num: "PRJ-E-1-1",
+          name: "Epic Feature 1",
+          score: 5,
+          position: 1,
+          created_at: "2025-01-01T00:00:00Z",
+        },
+      ];
+
+      mockFetch.mockResolvedValue(makeEpicFeaturesResponse(mockFeatures));
+
+      const result = await listFeaturesForEpic("PRJ-E-1");
+
+      expect(result).toEqual(mockFeatures);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/epics/PRJ-E-1/features"),
+        expect.any(Object)
+      );
+    });
+
+    it("returns unestimated features only when unestimatedOnly is true", async () => {
+      const mockFeatures: AhaFeature[] = [
+        {
+          id: "feat-1",
+          reference_num: "PRJ-E-1-1",
+          name: "Unestimated Feature",
+          score: null,
+          original_estimate: null,
+          position: 1,
+          created_at: "2025-01-01T00:00:00Z",
+        },
+        {
+          id: "feat-2",
+          reference_num: "PRJ-E-1-2",
+          name: "Estimated Feature",
+          score: 8,
+          original_estimate: 8,
+          position: 2,
+          created_at: "2025-01-02T00:00:00Z",
+        },
+        {
+          id: "feat-3",
+          reference_num: "PRJ-E-1-3",
+          name: "Zero Estimate Feature",
+          score: 0,
+          original_estimate: 0,
+          position: 3,
+          created_at: "2025-01-03T00:00:00Z",
+        },
+      ];
+
+      mockFetch.mockResolvedValue(makeEpicFeaturesResponse(mockFeatures));
+
+      const result = await listFeaturesForEpic("PRJ-E-1", { unestimatedOnly: true });
+
+      expect(result).toHaveLength(2);
+      expect(result.map((f) => f.id)).toEqual(["feat-1", "feat-3"]);
+    });
+
+    it("returns all features when unestimatedOnly is false", async () => {
+      const mockFeatures: AhaFeature[] = [
+        {
+          id: "feat-1",
+          reference_num: "PRJ-E-1-1",
+          name: "Feature 1",
+          score: 3,
+          position: 1,
+          created_at: "2025-01-01T00:00:00Z",
+        },
+        {
+          id: "feat-2",
+          reference_num: "PRJ-E-1-2",
+          name: "Feature 2",
+          score: null,
+          position: 2,
+          created_at: "2025-01-02T00:00:00Z",
+        },
+      ];
+
+      mockFetch.mockResolvedValue(makeEpicFeaturesResponse(mockFeatures));
+
+      const result = await listFeaturesForEpic("PRJ-E-1", { unestimatedOnly: false });
+
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  describe("listFeaturesInProduct with tag filtering", () => {
+    const makeGraphQLResponse = (
+      nodes: Array<{
+        id: string;
+        referenceNum: string;
+        name: string;
+        tags?: Array<{ name: string }>;
+        workDone?: { value: number } | null;
+        originalEstimate?: { value: number } | null;
+        score?: number | null;
+        workflowStatus?: {
+          id: string;
+          name: string;
+          position: number;
+          color: string;
+          internalMeaning: string | null;
+        } | null;
+        workflowKind?: { id: string; name: string } | null;
+        assignedToUser?: { id: string; name: string; email: string } | null;
+        teamLocation?: string;
+        position: number;
+        createdAt: string;
+      }>,
+      isLastPage = true
+    ) => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          features: {
+            nodes,
+            isLastPage,
+          },
+        },
+      }),
+    });
+
+    const baseNode = (overrides: Partial<{
+      id: string;
+      referenceNum: string;
+      name: string;
+      tags: Array<{ name: string }>;
+    }>) => ({
+      workDone: null,
+      originalEstimate: null,
+      score: null,
+      workflowStatus: null,
+      workflowKind: null,
+      assignedToUser: null,
+      teamLocation: undefined,
+      position: 1,
+      createdAt: "2025-01-01T00:00:00Z",
+      id: "feat-1",
+      referenceNum: "PRJ-1",
+      name: "Feature",
+      tags: [],
+      ...overrides,
+    });
+
+    it("returns all features when no tag specified", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          baseNode({ id: "feat-1", referenceNum: "PRJ-1", name: "Feature 1", tags: [{ name: "Frontend" }] }),
+          baseNode({ id: "feat-2", referenceNum: "PRJ-2", name: "Feature 2", tags: [{ name: "API" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123");
+
+      expect(result).toHaveLength(2);
+    });
+
+    it("filters features by tag (case-insensitive)", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          baseNode({ id: "feat-1", referenceNum: "PRJ-1", name: "Frontend Feature", tags: [{ name: "Frontend" }] }),
+          baseNode({ id: "feat-2", referenceNum: "PRJ-2", name: "API Feature", tags: [{ name: "API" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123", { tag: "frontend" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("feat-1");
+    });
+
+    it("returns empty array when no features match tag", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          baseNode({ id: "feat-1", referenceNum: "PRJ-1", name: "Feature 1", tags: [{ name: "Backend" }] }),
+          baseNode({ id: "feat-2", referenceNum: "PRJ-2", name: "Feature 2", tags: [{ name: "API" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123", { tag: "frontend" });
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("handles features with no tags property", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          { ...baseNode({ id: "feat-1", referenceNum: "PRJ-1", name: "No Tags" }), tags: undefined as unknown as Array<{ name: string }> },
+          baseNode({ id: "feat-2", referenceNum: "PRJ-2", name: "Has Tag", tags: [{ name: "Frontend" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123", { tag: "frontend" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("feat-2");
+    });
+
+    it("matches feature if any tag matches when feature has multiple tags", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          baseNode({
+            id: "feat-1",
+            referenceNum: "PRJ-1",
+            name: "Multi-tag Feature",
+            tags: [{ name: "Frontend" }, { name: "API" }, { name: "Backend" }],
+          }),
+          baseNode({ id: "feat-2", referenceNum: "PRJ-2", name: "No Match", tags: [{ name: "Mobile" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123", { tag: "api" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("feat-1");
+    });
+
+    it("tag filter is case-insensitive for uppercase filter value", async () => {
+      mockFetch.mockResolvedValue(
+        makeGraphQLResponse([
+          baseNode({ id: "feat-1", referenceNum: "PRJ-1", name: "Feature", tags: [{ name: "frontend" }] }),
+        ])
+      );
+
+      const result = await listFeaturesInProduct("product-123", { tag: "FRONTEND" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("feat-1");
     });
   });
 });
