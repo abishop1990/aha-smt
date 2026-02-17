@@ -60,11 +60,14 @@ function parseEnvToConfig(env: Env): Partial<AhaSMTConfig> {
 
   // Backlog
   if (env.BACKLOG_FILTER_TYPE || env.BACKLOG_TEAM_PRODUCT_ID ||
-      env.BACKLOG_EXCLUDE_WORKFLOW_KINDS || env.BACKLOG_CUSTOM_FIELD_KEY) {
+      env.BACKLOG_EXCLUDE_WORKFLOW_KINDS || env.BACKLOG_CUSTOM_FIELD_KEY ||
+      env.BACKLOG_TAG_FILTER || env.BACKLOG_EPIC_ID) {
     config.backlog = { filterType: "release" };
     if (env.BACKLOG_FILTER_TYPE) config.backlog.filterType = env.BACKLOG_FILTER_TYPE;
     if (env.BACKLOG_TEAM_PRODUCT_ID) config.backlog.teamProductId = env.BACKLOG_TEAM_PRODUCT_ID;
     if (env.BACKLOG_CUSTOM_FIELD_KEY) config.backlog.customFieldKey = env.BACKLOG_CUSTOM_FIELD_KEY;
+    if (env.BACKLOG_TAG_FILTER) config.backlog.tagFilter = env.BACKLOG_TAG_FILTER;
+    if (env.BACKLOG_EPIC_ID) config.backlog.epicId = env.BACKLOG_EPIC_ID;
     if (env.BACKLOG_EXCLUDE_WORKFLOW_KINDS) {
       config.backlog.excludeWorkflowKinds = env.BACKLOG_EXCLUDE_WORKFLOW_KINDS
         .split(",").map((s) => s.trim()).filter(Boolean);

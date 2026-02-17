@@ -15,6 +15,8 @@ const envSchema = z.object({
   BACKLOG_TEAM_PRODUCT_ID: z.string().optional(),
   BACKLOG_EXCLUDE_WORKFLOW_KINDS: z.string().optional(), // comma-separated
   BACKLOG_CUSTOM_FIELD_KEY: z.string().optional(),
+  BACKLOG_TAG_FILTER: z.string().optional(),    // tag name to filter by when filterType=tag
+  BACKLOG_EPIC_ID: z.string().optional(),       // epic ref (e.g. PRJ-E-1) when filterType=epic
 
   POINTS_SOURCE: z.string().optional(), // comma-separated: original_estimate,score,work_units
   POINTS_SCALE: z.string().optional(), // comma-separated numbers: 1,2,3,5,8,13,21
