@@ -8,9 +8,13 @@ export interface EstimationCriteria {
   unknowns: CriteriaLevel;
 }
 
-export function getSuggestedPoints(criteria: EstimationCriteria): number {
+export function getSuggestedPoints(
+  criteria: EstimationCriteria,
+  matrix?: Record<string, number>
+): number {
   const key = `${criteria.scope}-${criteria.complexity}-${criteria.unknowns}`;
-  return getConfigSync().estimation.matrix[key] ?? 5;
+  const resolvedMatrix = matrix ?? getConfigSync().estimation.matrix;
+  return resolvedMatrix[key] ?? 5;
 }
 
 /** Returns the configured point scale for estimation UI. */

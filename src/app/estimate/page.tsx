@@ -136,7 +136,8 @@ function EstimatePageContent() {
   }, [features, searchParams]);
 
   const currentFeature = features[currentIndex] ?? null;
-  const suggestedPoints = getSuggestedPoints(criteria);
+  const estimationMatrix = config?.estimation.matrix;
+  const suggestedPoints = getSuggestedPoints(criteria, estimationMatrix);
   const pointScale = config?.points.scale ?? [];
 
   const handleSubmit = useCallback(
