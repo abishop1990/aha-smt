@@ -243,26 +243,43 @@ describe("itemToBarGeometry", () => {
 // generateMonthTicks
 // ────────────────────────────────────────────────────────────
 describe("generateMonthTicks", () => {
-  it("returns empty array when timeline is under one month", () => {
+  it("generates one monthly tick when a month boundary falls in a short range", () => {
     const start = parseISO("2026-01-20");
     const end = parseISO("2026-02-05");
     const ticks = generateMonthTicks(start, end, 16);
-    // Feb 1 is within the range but addMonths(Jan 20, 1) = Feb 20 which is > end
-    // startOfMonth(Feb 20) = Feb 1 which IS < end (Feb 5)
+    // Feb 1 falls within the range → one tick
     expect(ticks).toHaveLength(1);
-    expect(ticks[0].label).toBe("Feb 2026");
+    // First tick shows the year since it's a new year context
+    expect(ticks[0].label).toBe("Feb '26");
   });
 
-  it("generates one tick per month boundary within the range", () => {
+  it("shows year only on first tick when all months share the same year", () => {
     const start = parseISO("2026-01-01");
     const end = parseISO("2026-04-01");
     const totalDays = 90;
     const ticks = generateMonthTicks(start, end, totalDays);
     const labels = ticks.map((t) => t.label);
-    expect(labels).toContain("Feb 2026");
-    expect(labels).toContain("Mar 2026");
-    // Apr 1 is the end, cursor starts at Feb then Mar, then Apr which equals end (not <)
-    expect(labels).not.toContain("Apr 2026");
+    // Feb is first tick → shows year
+    expect(labels).toContain("Feb '26");
+    // Mar is same year → no year suffix
+    expect(labels).toContain("Mar");
+    // Apr 1 equals end (not < end) → not included
+    expect(labels).not.toContain("Apr '26");
+    expect(labels).not.toContain("Apr");
+  });
+
+  it("uses quarterly ticks for timelines over 180 days", () => {
+    const start = parseISO("2026-01-01");
+    const end = parseISO("2026-12-31");
+    const totalDays = 364;
+    const ticks = generateMonthTicks(start, end, totalDays);
+    const labels = ticks.map((t) => t.label);
+    // First quarter boundary after Jan 1 is Apr 1 (Q2)
+    expect(labels).toContain("Q2 '26");
+    expect(labels).toContain("Q3 '26");
+    expect(labels).toContain("Q4 '26");
+    // No monthly labels
+    expect(labels.every((l) => l.startsWith("Q"))).toBe(true);
   });
 
   it("tick leftPct is between 0 and 100", () => {

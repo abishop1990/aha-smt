@@ -94,22 +94,43 @@ export function itemToBarGeometry(
   return { leftPct, widthPct };
 }
 
-// Generate month tick marks for the X-axis header
+// Generate timeline tick marks for the X-axis header.
+// ≤ 180 days: monthly ticks ("Jan", "Feb '26" at year boundary).
+// > 180 days: quarterly ticks ("Q1 '26", "Q2 '26", etc.).
 export function generateMonthTicks(
   timelineStart: Date,
   timelineEnd: Date,
   totalDays: number
 ): Array<{ label: string; leftPct: number }> {
   const ticks: Array<{ label: string; leftPct: number }> = [];
-  let cursor = startOfMonth(addMonths(timelineStart, 1));
-  while (cursor < timelineEnd) {
-    const leftDays = differenceInDays(cursor, timelineStart);
-    ticks.push({
-      label: format(cursor, "MMM yyyy"),
-      leftPct: (leftDays / totalDays) * 100,
-    });
-    cursor = addMonths(cursor, 1);
+
+  if (totalDays <= 180) {
+    // Monthly ticks with compact labels; show year only when it changes
+    let cursor = startOfMonth(addMonths(timelineStart, 1));
+    let lastYear = "";
+    while (cursor < timelineEnd) {
+      const year = format(cursor, "yy");
+      const label = year !== lastYear ? format(cursor, "MMM ''yy") : format(cursor, "MMM");
+      const leftDays = differenceInDays(cursor, timelineStart);
+      ticks.push({ label, leftPct: (leftDays / totalDays) * 100 });
+      lastYear = year;
+      cursor = addMonths(cursor, 1);
+    }
+  } else {
+    // Quarterly ticks: find first Jan/Apr/Jul/Oct boundary after timelineStart
+    let cursor = startOfMonth(timelineStart);
+    while (cursor.getMonth() % 3 !== 0 || cursor.getTime() <= timelineStart.getTime()) {
+      cursor = addMonths(cursor, 1);
+    }
+    while (cursor < timelineEnd) {
+      const quarter = Math.floor(cursor.getMonth() / 3) + 1;
+      const label = `Q${quarter} '${format(cursor, "yy")}`;
+      const leftDays = differenceInDays(cursor, timelineStart);
+      ticks.push({ label, leftPct: (leftDays / totalDays) * 100 });
+      cursor = addMonths(cursor, 3);
+    }
   }
+
   return ticks;
 }
 
