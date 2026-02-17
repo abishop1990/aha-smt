@@ -81,8 +81,13 @@ export function useSprintMetrics(sourceType: "release" | "iteration", limit = 10
   const { data: releasesData } = useReleases();
   const { data: iterationsData } = useIterations();
 
+  // Include a fingerprint of the upstream data in the key so metrics recompute
+  // when releases or iterations change (stale-closure prevention).
+  const releaseIds = releasesData?.releases.map((r) => r.id).join(",") ?? "";
+  const iterationIds = iterationsData?.iterations.map((i) => i.id).join(",") ?? "";
+
   return useQuery<SprintMetrics[]>({
-    queryKey: ["sprint-metrics", sourceType, limit],
+    queryKey: ["sprint-metrics", sourceType, limit, releaseIds, iterationIds],
     queryFn: async () => {
       if (sourceType === "iteration") {
         const iterations = iterationsData?.iterations ?? [];
