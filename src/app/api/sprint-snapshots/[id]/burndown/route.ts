@@ -7,10 +7,10 @@ import { getPoints } from "@/lib/points";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ releaseId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { releaseId } = await params;
+    const { id: releaseId } = await params;
     const db = getDb();
     const entries = await db
       .select()
@@ -27,10 +27,10 @@ export async function GET(
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Promise<{ releaseId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { releaseId } = await params;
+    const { id: releaseId } = await params;
     const db = getDb();
 
     const { loadConfigFromDb } = await import("@/lib/config.server");
