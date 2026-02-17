@@ -21,8 +21,13 @@ export function EstimationMatrixEditor() {
     H: "High",
   };
 
-  function updateMatrix(key: string, value: number) {
-    const updatedMatrix = { ...matrix, [key]: value };
+  function updateMatrix(key: string, value: number | undefined) {
+    const updatedMatrix = { ...matrix };
+    if (value === undefined || isNaN(value)) {
+      delete updatedMatrix[key];
+    } else {
+      updatedMatrix[key] = value;
+    }
     updateConfig({
       estimation: {
         ...config?.estimation,
@@ -60,8 +65,8 @@ export function EstimationMatrixEditor() {
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val === "") {
-                          // Allow clearing the value
-                          updateMatrix(key, NaN);
+                          // Remove the key from the matrix when cleared
+                          updateMatrix(key, undefined);
                         } else {
                           const parsed = parseInt(val, 10);
                           if (!isNaN(parsed) && parsed > 0) {
