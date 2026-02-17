@@ -18,7 +18,16 @@ import {
 
 export default function DashboardPage() {
   const { data: releasesData, isLoading: releasesLoading } = useReleases();
-  const latestRelease = releasesData?.releases?.[0];
+  const today = new Date().toISOString().split("T")[0];
+  const latestRelease =
+    releasesData?.releases?.find(
+      (r) =>
+        !r.parking_lot &&
+        r.start_date &&
+        r.release_date &&
+        r.start_date <= today &&
+        r.release_date >= today
+    ) ?? releasesData?.releases?.[0];
   const { data: featuresData, isLoading: featuresLoading } = useFeatures(
     latestRelease?.id ?? null
   );

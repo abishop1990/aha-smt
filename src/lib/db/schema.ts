@@ -101,6 +101,21 @@ export const daysOff = sqliteTable("days_off", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const sprintBurndownEntries = sqliteTable("sprint_burndown_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  releaseId: text("release_id").notNull(),
+  releaseRefNum: text("release_ref_num").notNull(),
+  capturedDate: text("captured_date").notNull(), // YYYY-MM-DD
+  totalPointsPlanned: real("total_points_planned").notNull().default(0),
+  pointsRemaining: real("points_remaining").notNull().default(0),
+  pointsCompleted: real("points_completed").notNull().default(0),
+  featuresCompleted: integer("features_completed").notNull().default(0),
+  sourceType: text("source_type").notNull().default("release"),
+  capturedAt: text("captured_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const orgConfig = sqliteTable("org_config", {
   key: text("key").primaryKey(),
   value: text("value").notNull(), // JSON-serialized

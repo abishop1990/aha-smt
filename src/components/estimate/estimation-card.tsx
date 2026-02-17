@@ -1,13 +1,33 @@
+"use client";
+
+import { useState } from "react";
 import type { AhaFeature } from "@/lib/aha-types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useSettings } from "@/hooks/use-settings";
+import { Link, Check } from "lucide-react";
 
 interface EstimationCardProps {
   feature: AhaFeature;
 }
 
 export function EstimationCard({ feature }: EstimationCardProps) {
+  const [copied, setCopied] = useState(false);
+  const { data: settings } = useSettings();
+
+  function handleCopyLink() {
+    const domain = settings?.["ahaDomain"];
+    const url = domain
+      ? `https://${domain}.aha.io/features/${feature.reference_num}`
+      : feature.reference_num;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -20,6 +40,19 @@ export function EstimationCard({ feature }: EstimationCardProps) {
             />
             <CardTitle className="text-xl">{feature.name}</CardTitle>
           </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleCopyLink}
+            title="Copy Aha! link"
+            className="shrink-0 text-text-muted hover:text-text-primary"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Link className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

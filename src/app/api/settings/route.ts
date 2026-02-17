@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
+import { getEnv } from "@/lib/env";
 // eq used in onConflictDoUpdate
 
 export async function GET() {
@@ -11,6 +12,11 @@ export async function GET() {
     for (const s of settings) {
       settingsMap[s.key] = s.value;
     }
+    // Expose Aha domain for client-side URL construction (not sensitive)
+    try {
+      const env = getEnv();
+      settingsMap["ahaDomain"] = env.AHA_DOMAIN ?? "";
+    } catch { /* env not available, skip */ }
     return NextResponse.json(settingsMap);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch settings";

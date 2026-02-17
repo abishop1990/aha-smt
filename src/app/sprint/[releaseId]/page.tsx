@@ -8,6 +8,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { SprintOverview } from "@/components/sprint/sprint-overview";
 import { MemberAllocationTable } from "@/components/sprint/member-allocation-table";
 import { SprintFeatureList } from "@/components/sprint/sprint-feature-list";
+import { SprintBurndownChart } from "@/components/sprint/sprint-burndown-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { differenceInBusinessDays, parseISO, isAfter } from "date-fns";
@@ -105,6 +106,7 @@ export default function SprintDetailPage({
         <TabsList>
           <TabsTrigger value="allocation">Team Allocation</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
+          <TabsTrigger value="burndown">Burndown</TabsTrigger>
         </TabsList>
         <TabsContent value="allocation" className="mt-4">
           <MemberAllocationTable
@@ -114,6 +116,13 @@ export default function SprintDetailPage({
         </TabsContent>
         <TabsContent value="features" className="mt-4">
           <SprintFeatureList features={features} />
+        </TabsContent>
+        <TabsContent value="burndown" className="mt-4">
+          <SprintBurndownChart
+            releaseId={releaseId}
+            startDate={startDate}
+            endDate={endDate}
+          />
         </TabsContent>
       </Tabs>
     </div>

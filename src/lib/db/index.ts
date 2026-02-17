@@ -116,6 +116,19 @@ export function getDb() {
       options TEXT,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sprint_burndown_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      release_id TEXT NOT NULL,
+      release_ref_num TEXT NOT NULL,
+      captured_date TEXT NOT NULL,
+      total_points_planned REAL NOT NULL DEFAULT 0,
+      points_remaining REAL NOT NULL DEFAULT 0,
+      points_completed REAL NOT NULL DEFAULT 0,
+      features_completed INTEGER NOT NULL DEFAULT 0,
+      source_type TEXT NOT NULL DEFAULT 'release',
+      captured_at TEXT NOT NULL,
+      UNIQUE(release_id, captured_date)
+    );
   `);
 
   // Migration: add new columns to sprint_snapshots for existing databases
