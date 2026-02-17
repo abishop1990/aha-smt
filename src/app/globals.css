@@ -40,6 +40,35 @@ body {
   background: var(--color-text-muted);
 }
 
+/* Aha HTML content (descriptions, requirement bodies rendered from Aha's HTML editor) */
+.aha-html-content p { margin-bottom: 0.5em; }
+.aha-html-content p:last-child { margin-bottom: 0; }
+.aha-html-content ul, .aha-html-content ol { padding-left: 1.25em; margin-bottom: 0.5em; }
+.aha-html-content ul { list-style-type: disc; }
+.aha-html-content ol { list-style-type: decimal; }
+.aha-html-content li { margin-bottom: 0.25em; }
+.aha-html-content h1, .aha-html-content h2, .aha-html-content h3 {
+  font-weight: 600;
+  margin-bottom: 0.4em;
+}
+.aha-html-content strong, .aha-html-content b { font-weight: 600; }
+.aha-html-content em, .aha-html-content i { font-style: italic; }
+.aha-html-content a { color: var(--color-primary); text-decoration: underline; }
+.aha-html-content code {
+  font-family: monospace;
+  background: var(--color-border);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.875em;
+}
+.aha-html-content pre {
+  background: var(--color-border);
+  padding: 0.75em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-bottom: 0.5em;
+}
+
 /* Skeleton animation */
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 0.4; }

@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/use-settings";
 import { Link2, Check } from "lucide-react";
 
+// Strip script tags from Aha-sourced HTML before rendering.
+// Full DOMPurify not needed — this is a private tool with trusted data.
+function safeHtml(html: string): string {
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+}
+
 interface EstimationCardProps {
   feature: AhaFeature;
 }
@@ -59,9 +65,10 @@ export function EstimationCard({ feature }: EstimationCardProps) {
             <h4 className="mb-2 text-sm font-medium text-text-secondary">
               Description
             </h4>
-            <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-              {feature.description.body}
-            </p>
+            <div
+              className="text-sm text-text-primary leading-relaxed aha-html-content"
+              dangerouslySetInnerHTML={{ __html: safeHtml(feature.description.body) }}
+            />
           </div>
         )}
 
@@ -80,9 +87,10 @@ export function EstimationCard({ feature }: EstimationCardProps) {
                     {req.name}
                   </p>
                   {req.body && (
-                    <p className="mt-1 text-xs text-text-secondary">
-                      {req.body}
-                    </p>
+                    <div
+                      className="mt-1 text-xs text-text-secondary aha-html-content"
+                      dangerouslySetInnerHTML={{ __html: safeHtml(req.body) }}
+                    />
                   )}
                 </li>
               ))}
