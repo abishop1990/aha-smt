@@ -2,8 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useReleases } from "@/hooks/use-releases";
+import { useIterations } from "@/hooks/use-iterations";
 import { useFeatures } from "@/hooks/use-features";
+import { useIterationFeatures } from "@/hooks/use-iteration-features";
 import { useSprintSnapshots } from "@/hooks/use-sprint-snapshots";
+import { useConfig } from "@/hooks/use-config";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { getPoints, formatPoints, isUnestimated } from "@/lib/points";
@@ -17,18 +20,40 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { data: releasesData, isLoading: releasesLoading } = useReleases();
-  const activeRelease =
-    releasesData?.releases?.find(
-      (r) => !r.parking_lot && r.status === "in_progress"
-    ) ?? null;
+  const { data: config } = useConfig();
+  const sprintMode = config?.sprints.mode ?? "both";
 
-  const { data: featuresData, isLoading: featuresLoading } = useFeatures(
-    activeRelease?.id ?? null
+  const { data: releasesData, isLoading: releasesLoading } = useReleases();
+  const { data: iterationsData, isLoading: iterationsLoading } = useIterations();
+
+  const activeRelease =
+    sprintMode !== "iterations"
+      ? (releasesData?.releases?.find(
+          (r) => !r.parking_lot && r.status === "in_progress"
+        ) ?? null)
+      : null;
+
+  const activeIteration =
+    sprintMode !== "releases"
+      ? (iterationsData?.iterations?.find((i) => i.status === "started") ?? null)
+      : null;
+
+  // Prefer iteration when both are available; fall back to release
+  const isIterationActive = sprintMode !== "releases" && !!activeIteration;
+  const activeSprint = isIterationActive ? activeIteration : activeRelease;
+
+  const { data: releaseFeatures, isLoading: relFeaturesLoading } = useFeatures(
+    !isIterationActive ? (activeRelease?.id ?? null) : null
   );
+  const { data: iterFeatures, isLoading: iterFeaturesLoading } = useIterationFeatures(
+    isIterationActive ? (activeIteration?.reference_num ?? null) : null
+  );
+
   const { data: snapshotsData } = useSprintSnapshots();
 
-  const features = featuresData?.features ?? [];
+  const features = isIterationActive
+    ? (iterFeatures?.features ?? [])
+    : (releaseFeatures?.features ?? []);
   const unestimated = features.filter(isUnestimated);
   const totalPoints = features.reduce((sum, f) => sum + getPoints(f), 0);
   const completedFeatures = features.filter((f) => f.workflow_status?.complete);
@@ -41,24 +66,26 @@ export default function DashboardPage() {
         )
       : 0;
 
-  const isLoading = releasesLoading || (!!activeRelease && featuresLoading);
-  const releasesLoaded = !releasesLoading && releasesData !== undefined;
+  const dataLoading = releasesLoading || iterationsLoading;
+  const featuresLoading = isIterationActive ? iterFeaturesLoading : relFeaturesLoading;
+  const isLoading = dataLoading || (!!activeSprint && featuresLoading);
+  const sprintDataLoaded = !dataLoading && releasesData !== undefined;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
         <p className="text-text-secondary mt-1">
-          {releasesLoading
+          {dataLoading
             ? "Loading..."
-            : activeRelease
-              ? `Current sprint: ${activeRelease.name}`
+            : activeSprint
+              ? `Current sprint: ${activeSprint.name}`
               : "No sprint in progress"}
         </p>
       </div>
 
       {/* KPI Cards — only shown when a sprint is active */}
-      {(isLoading || activeRelease) && (
+      {(isLoading || activeSprint) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -139,7 +166,7 @@ export default function DashboardPage() {
               <div className="flex-1">
                 <h3 className="font-medium">Backlog</h3>
                 <p className="text-sm text-text-secondary">
-                  {releasesLoaded && !activeRelease
+                  {sprintDataLoaded && !activeSprint
                     ? "Browse features"
                     : `${unestimated.length} unestimated features`}
                 </p>
