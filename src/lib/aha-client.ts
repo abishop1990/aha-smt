@@ -24,6 +24,7 @@ async function refreshInBackground<T>(
   method: string,
   body: unknown,
   cacheKey: string,
+  cacheTtl?: number,
 ): Promise<void> {
   if (pendingRefreshes.has(cacheKey)) return;
   pendingRefreshes.add(cacheKey);
@@ -37,8 +38,12 @@ async function refreshInBackground<T>(
       keepalive: true,
     });
     if (response.ok) {
-      const data = (await response.json()) as T;
-      setInCache(cacheKey, data);
+      const raw = (await response.json()) as T;
+      // For GraphQL responses, unwrap the data field
+      const data = (raw as Record<string, unknown>).data !== undefined
+        ? (raw as { data: T }).data
+        : raw;
+      setInCache(cacheKey, data, cacheTtl);
     }
   } catch {
     // Silently fail — stale data was already served
@@ -69,6 +74,8 @@ async function ahaGraphQL<T>(
 
   const stale = getStaleFromCache<T>(cacheKey);
   if (stale?.isStale) {
+    // Serve stale data immediately and refresh in the background
+    refreshInBackground<T>(getGraphQLUrl(), "POST", { query, variables }, cacheKey, cacheTtl);
     return stale.data;
   }
 
@@ -430,35 +437,29 @@ export async function listFeaturesInProduct(
   const BATCH_SIZE = 4;
   const MAX_PAGES = 20;
 
-  // Step 1: Always fetch page 1 first — we need isLastPage to know total page count
-  const page1 = await fetchProductFeaturesPage(productId, 1, perPage);
-  const allNodes: ProductFeaturesGqlNode[] = [...page1.nodes];
+  // Fetch all pages in parallel batches of BATCH_SIZE, starting from page 1.
+  // Including page 1 in the first batch eliminates one sequential round-trip for
+  // large products (>4 pages) vs the old "fetch page 1 first, then batch the rest" approach.
+  const allNodes: ProductFeaturesGqlNode[] = [];
+  let nextPage = 1;
+  let done = false;
 
-  // Step 2: If page 1 is the last page, we're done
-  if (!page1.isLastPage) {
-    // Step 3: Speculatively fetch remaining pages in parallel batches of BATCH_SIZE
-    let nextPage = 2;
-    let done = false;
+  while (!done && nextPage <= MAX_PAGES) {
+    const batchPages: number[] = [];
+    for (let i = 0; i < BATCH_SIZE && nextPage + i <= MAX_PAGES; i++) {
+      batchPages.push(nextPage + i);
+    }
+    nextPage += BATCH_SIZE;
 
-    while (!done && nextPage <= MAX_PAGES) {
-      // Build a batch of page numbers to fetch in parallel
-      const batchPages: number[] = [];
-      for (let i = 0; i < BATCH_SIZE && nextPage + i <= MAX_PAGES; i++) {
-        batchPages.push(nextPage + i);
-      }
-      nextPage += BATCH_SIZE;
+    const batchResults = await Promise.all(
+      batchPages.map((p) => fetchProductFeaturesPage(productId, p, perPage))
+    );
 
-      // Fire all pages in this batch concurrently
-      const batchResults = await Promise.all(
-        batchPages.map((p) => fetchProductFeaturesPage(productId, p, perPage))
-      );
-
-      for (const pageResult of batchResults) {
-        allNodes.push(...pageResult.nodes);
-        if (pageResult.isLastPage) {
-          done = true;
-          break;
-        }
+    for (const pageResult of batchResults) {
+      allNodes.push(...pageResult.nodes);
+      if (pageResult.isLastPage) {
+        done = true;
+        break;
       }
     }
   }
