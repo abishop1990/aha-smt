@@ -135,6 +135,14 @@ describe("partitionItems", () => {
     expect(undated).toHaveLength(0); // dropped entirely (not undated)
   });
 
+  it("includes past items in datable when showPast is true", () => {
+    const staleEnd = format(subMonths(new Date(), 4), "yyyy-MM-dd");
+    const item = makeItem({ startDate: pastDate(150), endDate: staleEnd });
+    const { datable, undated } = partitionItems([item], { showPast: true });
+    expect(datable).toHaveLength(1);
+    expect(undated).toHaveLength(0);
+  });
+
   it("includes items that ended recently (within 3 months)", () => {
     const recentEnd = format(subMonths(new Date(), 2), "yyyy-MM-dd");
     const item = makeItem({ startDate: pastDate(70), endDate: recentEnd });

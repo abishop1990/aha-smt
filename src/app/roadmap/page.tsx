@@ -38,7 +38,7 @@ function RoadmapContent() {
         ? (releasesData?.releases ?? []).filter((r) => !r.parking_lot).map(releaseToRoadmapItem)
         : (epicsData?.epics ?? []).map(epicToRoadmapItem);
 
-    const { datable, undated } = partitionItems(rawItems);
+    const { datable, undated } = partitionItems(rawItems, { showPast: viewMode === "epics" });
     const range = computeTimelineRange(datable);
     const ticks = generateMonthTicks(range.start, range.end, range.totalDays);
     return {

@@ -818,9 +818,10 @@ export async function deleteFeatureVote(featureId: string, voteId: string): Prom
   );
 }
 export async function listEpicsForProduct(productId: string): Promise<AhaEpic[]> {
-  const res = await ahaFetch<{ epics?: AhaEpic[] }>(
+  return ahaFetchAllPages<AhaEpic>(
     `/products/${productId}/epics`,
-    { params: { fields: "id,reference_num,name,start_date,due_date,workflow_status,progress" } }
+    "epics",
+    { fields: "id,reference_num,name,start_date,due_date,workflow_status,progress" },
+    300
   );
-  return res.epics ?? [];
 }

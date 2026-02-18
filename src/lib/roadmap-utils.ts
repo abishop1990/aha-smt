@@ -37,8 +37,14 @@ export function epicToRoadmapItem(e: AhaEpic): RoadmapItem {
   };
 }
 
-// Split items into datable (has both dates, not stale) and undated
-export function partitionItems(items: RoadmapItem[]): {
+// Split items into datable (has both dates) and undated.
+// By default, items whose end date is more than 3 months in the past are silently
+// dropped (appropriate for releases/sprints). Pass showPast: true to include them
+// in the chart (appropriate for epics where historical context matters).
+export function partitionItems(
+  items: RoadmapItem[],
+  options?: { showPast?: boolean }
+): {
   datable: RoadmapItem[];
   undated: RoadmapItem[];
 } {
@@ -52,7 +58,7 @@ export function partitionItems(items: RoadmapItem[]): {
       continue;
     }
     const end = parseISO(item.endDate);
-    if (end < threeMonthsAgo) continue; // skip stale
+    if (end < threeMonthsAgo && !options?.showPast) continue; // skip stale
     datable.push(item);
   }
 
