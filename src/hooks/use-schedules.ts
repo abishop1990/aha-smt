@@ -24,6 +24,7 @@ export function useDaysOff(options?: { userId?: string; startDate?: string; endD
       if (!res.ok) throw new Error("Failed to fetch days off");
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

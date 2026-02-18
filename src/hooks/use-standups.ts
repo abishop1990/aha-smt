@@ -31,6 +31,7 @@ export function useStandups(date?: string, userId?: string) {
       if (!res.ok) throw new Error("Failed to fetch standups");
       return res.json();
     },
+    staleTime: 2 * 60 * 1000,
   });
 }
 

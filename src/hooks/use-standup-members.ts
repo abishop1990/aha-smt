@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useTeamMembers } from "@/hooks/use-team-members";
+import { useSettings } from "@/hooks/use-settings";
 
 /**
  * Returns team members filtered by standup configuration.
@@ -12,14 +12,7 @@ import { useTeamMembers } from "@/hooks/use-team-members";
 export function useStandupMembers() {
   const teamMembers = useTeamMembers();
 
-  const { data: settings } = useQuery<Record<string, string>>({
-    queryKey: ["settings"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings");
-      if (!res.ok) throw new Error("Failed to load settings");
-      return res.json();
-    },
-  });
+  const { data: settings } = useSettings();
 
   const filteredMembers = useMemo(() => {
     const allMembers = teamMembers.data ?? [];

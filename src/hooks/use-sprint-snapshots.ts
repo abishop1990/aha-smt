@@ -30,6 +30,7 @@ export function useSprintSnapshots() {
       if (!res.ok) throw new Error("Failed to fetch snapshots");
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
