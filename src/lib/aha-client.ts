@@ -293,139 +293,183 @@ export async function listFeaturesForEpic(
   return features;
 }
 
+// GraphQL query used by listFeaturesInProduct (defined once, shared across pages)
+const PRODUCT_FEATURES_QUERY = `
+  query($projectId: ID!, $page: Int!, $per: Int!) {
+    features(filters: { projectId: $projectId }, page: $page, per: $per) {
+      nodes {
+        id
+        referenceNum
+        name
+        workDone {
+          value
+        }
+        originalEstimate {
+          value
+        }
+        score
+        workflowStatus {
+          id
+          name
+          position
+          color
+          internalMeaning
+        }
+        workflowKind {
+          id
+          name
+        }
+        assignedToUser {
+          id
+          name
+          email
+        }
+        tags {
+          name
+        }
+        teamLocation
+        position
+        createdAt
+      }
+      isLastPage
+    }
+  }
+`;
+
+type ProductFeaturesGqlNode = {
+  id: string;
+  referenceNum: string;
+  name: string;
+  workDone?: { value: number } | null;
+  originalEstimate?: { value: number } | null;
+  score?: number | null;
+  workflowStatus?: {
+    id: string;
+    name: string;
+    position: number;
+    color: string;
+    internalMeaning: string | null;
+  };
+  workflowKind?: {
+    id: string;
+    name: string;
+  };
+  assignedToUser?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  tags?: Array<{ name: string }>;
+  teamLocation?: string;
+  position: number;
+  createdAt: string;
+};
+
+type ProductFeaturesGqlResult = {
+  features: {
+    nodes: ProductFeaturesGqlNode[];
+    isLastPage: boolean;
+  };
+};
+
+async function fetchProductFeaturesPage(
+  productId: string,
+  page: number,
+  perPage: number
+): Promise<ProductFeaturesGqlResult["features"]> {
+  const result = await ahaGraphQL<ProductFeaturesGqlResult>(
+    PRODUCT_FEATURES_QUERY,
+    { projectId: productId, page, per: perPage },
+    300
+  );
+  return result.features;
+}
+
+function mapProductFeatureNode(
+  node: ProductFeaturesGqlNode,
+  completeMeanings: Set<string>
+): AhaFeature {
+  return {
+    id: node.id,
+    reference_num: node.referenceNum,
+    name: node.name,
+    work_units: node.workDone?.value ?? null,
+    original_estimate: node.originalEstimate?.value ?? null,
+    score: node.score ?? null,
+    workflow_status: node.workflowStatus
+      ? {
+          id: node.workflowStatus.id,
+          name: node.workflowStatus.name,
+          color: node.workflowStatus.color,
+          position: node.workflowStatus.position,
+          complete: completeMeanings.has(node.workflowStatus.internalMeaning ?? ""),
+        }
+      : undefined,
+    workflow_kind: node.workflowKind,
+    assigned_to_user: node.assignedToUser ?? null,
+    tags: node.tags?.map((t) => t.name) ?? [],
+    team_location: node.teamLocation,
+    position: node.position,
+    created_at: node.createdAt,
+  };
+}
+
 /**
  * Fetch ALL features from a product with optional team_location filter.
  * Uses GraphQL v2 API which returns team_location efficiently.
  * Filters client-side by team_location since the API doesn't support server-side filtering.
+ *
+ * Pagination strategy: fetch page 1 first, then fire remaining pages in parallel
+ * batches of 4 (safe within the 20 req/s burst limit). Safety cap: 20 pages (4000 features).
  */
 export async function listFeaturesInProduct(
   productId: string,
   options?: { teamLocation?: string; tag?: string; unestimatedOnly?: boolean; excludeWorkflowKinds?: string[] }
 ): Promise<AhaFeature[]> {
-  const allFeatures: AhaFeature[] = [];
-  let page = 1;
   const perPage = 200;
-  let hasMore = true;
+  const BATCH_SIZE = 4;
+  const MAX_PAGES = 20;
 
-  // Paginate through all features using GraphQL
-  while (hasMore) {
-    const query = `
-      query($projectId: ID!, $page: Int!, $per: Int!) {
-        features(filters: { projectId: $projectId }, page: $page, per: $per) {
-          nodes {
-            id
-            referenceNum
-            name
-            workDone {
-              value
-            }
-            originalEstimate {
-              value
-            }
-            score
-            workflowStatus {
-              id
-              name
-              position
-              color
-              internalMeaning
-            }
-            workflowKind {
-              id
-              name
-            }
-            assignedToUser {
-              id
-              name
-              email
-            }
-            tags {
-              name
-            }
-            teamLocation
-            position
-            createdAt
-          }
-          isLastPage
+  // Step 1: Always fetch page 1 first — we need isLastPage to know total page count
+  const page1 = await fetchProductFeaturesPage(productId, 1, perPage);
+  const allNodes: ProductFeaturesGqlNode[] = [...page1.nodes];
+
+  // Step 2: If page 1 is the last page, we're done
+  if (!page1.isLastPage) {
+    // Step 3: Speculatively fetch remaining pages in parallel batches of BATCH_SIZE
+    let nextPage = 2;
+    let done = false;
+
+    while (!done && nextPage <= MAX_PAGES) {
+      // Build a batch of page numbers to fetch in parallel
+      const batchPages: number[] = [];
+      for (let i = 0; i < BATCH_SIZE && nextPage + i <= MAX_PAGES; i++) {
+        batchPages.push(nextPage + i);
+      }
+      nextPage += BATCH_SIZE;
+
+      // Fire all pages in this batch concurrently
+      const batchResults = await Promise.all(
+        batchPages.map((p) => fetchProductFeaturesPage(productId, p, perPage))
+      );
+
+      for (const pageResult of batchResults) {
+        allNodes.push(...pageResult.nodes);
+        if (pageResult.isLastPage) {
+          done = true;
+          break;
         }
       }
-    `;
-
-    const variables = {
-      projectId: productId,
-      page,
-      per: perPage,
-    };
-
-    const result = await ahaGraphQL<{
-      features: {
-        nodes: Array<{
-          id: string;
-          referenceNum: string;
-          name: string;
-          workDone?: { value: number } | null;
-          originalEstimate?: { value: number } | null;
-          score?: number | null;
-          workflowStatus?: {
-            id: string;
-            name: string;
-            position: number;
-            color: string;
-            internalMeaning: string | null;
-          };
-          workflowKind?: {
-            id: string;
-            name: string;
-          };
-          assignedToUser?: {
-            id: string;
-            name: string;
-            email: string;
-          } | null;
-          tags?: Array<{ name: string }>;
-          teamLocation?: string;
-          position: number;
-          createdAt: string;
-        }>;
-        isLastPage: boolean;
-      };
-    }>(query, variables);
-
-    // Map GraphQL response to AhaFeature format
-    const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
-    const mappedFeatures = result.features.nodes.map((node) => ({
-      id: node.id,
-      reference_num: node.referenceNum,
-      name: node.name,
-      work_units: node.workDone?.value ?? null,
-      original_estimate: node.originalEstimate?.value ?? null,
-      score: node.score ?? null,
-      workflow_status: node.workflowStatus
-        ? {
-            id: node.workflowStatus.id,
-            name: node.workflowStatus.name,
-            color: node.workflowStatus.color,
-            position: node.workflowStatus.position,
-            complete: completeMeanings.has(node.workflowStatus.internalMeaning ?? ""),
-          }
-        : undefined,
-      workflow_kind: node.workflowKind,
-      assigned_to_user: node.assignedToUser ?? null,
-      tags: node.tags?.map((t) => t.name) ?? [],
-      team_location: node.teamLocation,
-      position: node.position,
-      created_at: node.createdAt,
-    }));
-
-    allFeatures.push(...mappedFeatures);
-
-    hasMore = !result.features.isLastPage;
-    page++;
+    }
   }
+
+  // Map GraphQL nodes to AhaFeature format
+  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
+  const mappedFeatures = allNodes.map((node) => mapProductFeatureNode(node, completeMeanings));
 
   // Deduplicate by feature ID (API sometimes returns duplicates)
   const uniqueFeatures = Array.from(
-    new Map(allFeatures.map((f) => [f.id, f])).values()
+    new Map(mappedFeatures.map((f) => [f.id, f])).values()
   );
 
   // Filter by team_location if specified
