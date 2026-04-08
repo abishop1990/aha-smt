@@ -7,18 +7,11 @@ import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { usePrefetch } from "@/hooks/use-prefetch";
+import { formatAhaDate } from "@/lib/date-utils";
 
 interface FeatureRowProps {
   feature: AhaFeature;
   onEstimate: (feature: AhaFeature) => void;
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function FeatureRow({ feature, onEstimate }: FeatureRowProps) {
@@ -63,7 +56,7 @@ export function FeatureRow({ feature, onEstimate }: FeatureRowProps) {
         </div>
       </TableCell>
       <TableCell className="text-text-muted text-xs whitespace-nowrap">
-        {formatDate(feature.created_at)}
+        {formatAhaDate(feature.created_at)}
       </TableCell>
       <TableCell className="text-right">
         <Button size="sm" onClick={() => onEstimate(feature)}>

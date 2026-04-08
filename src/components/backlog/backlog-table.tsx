@@ -7,20 +7,13 @@ import { FeatureBadge } from "@/components/shared/feature-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AhaFeature } from "@/lib/aha-types";
+import { formatAhaDate } from "@/lib/date-utils";
 
 interface BacklogTableProps {
   features: AhaFeature[] | undefined;
   isLoading: boolean;
   assigneeFilter: string;
   tagFilter: string;
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function BacklogTable({
@@ -114,7 +107,7 @@ export function BacklogTable({
         header: "Created",
         render: (feature) => (
           <span className="text-text-muted text-xs whitespace-nowrap">
-            {formatDate(feature.created_at)}
+            {formatAhaDate(feature.created_at)}
           </span>
         ),
       },

@@ -36,7 +36,7 @@ describe("calculateMemberCapacities", () => {
 
   it("calculates capacity for one member with no days off", () => {
     const features = [makeFeature("u1", "Alice")];
-    // Mon Jan 8 to Fri Jan 19 = 9 business days (differenceInBusinessDays)
+    // Mon Jan 8 to Fri Jan 19 = 10 business days inclusive
     const result = calculateMemberCapacities(
       "2024-01-08",
       "2024-01-19",
@@ -47,7 +47,7 @@ describe("calculateMemberCapacities", () => {
 
     expect(result).toHaveProperty("u1");
     expect(result["u1"].name).toBe("Alice");
-    expect(result["u1"].capacity).toBe(9); // 9 biz days * 1 pt/day
+    expect(result["u1"].capacity).toBe(10); // 10 biz days * 1 pt/day
     expect(result["u1"].pointsPerDay).toBe(1);
     expect(result["u1"].daysOff).toBe(0);
   });
@@ -62,7 +62,7 @@ describe("calculateMemberCapacities", () => {
       2
     );
 
-    expect(result["u1"].capacity).toBe(18); // 9 * 2
+    expect(result["u1"].capacity).toBe(20); // 10 * 2
     expect(result["u1"].pointsPerDay).toBe(2);
   });
 
@@ -80,7 +80,7 @@ describe("calculateMemberCapacities", () => {
       1
     );
 
-    expect(result["u1"].capacity).toBe(7); // 9 - 2
+    expect(result["u1"].capacity).toBe(8); // 10 - 2
     expect(result["u1"].daysOff).toBe(2);
   });
 
@@ -100,9 +100,9 @@ describe("calculateMemberCapacities", () => {
       1
     );
 
-    expect(result["u1"].capacity).toBe(8); // 9 - 1 holiday
+    expect(result["u1"].capacity).toBe(9); // 10 - 1 holiday
     expect(result["u1"].daysOff).toBe(1);
-    expect(result["u2"].capacity).toBe(8);
+    expect(result["u2"].capacity).toBe(9);
     expect(result["u2"].daysOff).toBe(1);
   });
 
@@ -120,7 +120,7 @@ describe("calculateMemberCapacities", () => {
       1
     );
 
-    expect(result["u1"].capacity).toBe(7); // 9 - 1 - 1
+    expect(result["u1"].capacity).toBe(8); // 10 - 1 - 1
     expect(result["u1"].daysOff).toBe(2);
   });
 
@@ -194,9 +194,9 @@ describe("calculateMemberCapacities", () => {
       1
     );
 
-    expect(result["u1"].capacity).toBe(9);
+    expect(result["u1"].capacity).toBe(10);
     expect(result["u1"].daysOff).toBe(0);
-    expect(result["u2"].capacity).toBe(6);
+    expect(result["u2"].capacity).toBe(7);
     expect(result["u2"].daysOff).toBe(3);
   });
 });

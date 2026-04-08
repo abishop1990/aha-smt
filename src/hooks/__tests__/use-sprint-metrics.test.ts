@@ -90,6 +90,15 @@ const mockReleases: AhaRelease[] = [
     parking_lot: false,
     progress: 0,
   },
+  {
+    id: "rel-future",
+    reference_num: "REL-FUTURE",
+    name: "Future Sprint",
+    start_date: "2099-06-01",
+    release_date: "2099-06-14",
+    parking_lot: false,
+    progress: 0,
+  },
 ];
 
 const mockIterations: AhaIteration[] = [
@@ -116,6 +125,14 @@ const mockIterations: AhaIteration[] = [
     status: "planning",
     start_date: null,
     end_date: null,
+  },
+  {
+    id: "iter-future",
+    reference_num: "ITER-FUTURE",
+    name: "Future Iteration",
+    status: "planning",
+    start_date: "2099-06-01",
+    end_date: "2099-06-14",
   },
 ];
 
@@ -237,6 +254,21 @@ describe("release mode basics", () => {
     expect(ids).not.toContain("rel-4");
   });
 
+  it("excludes future releases (start_date after today)", async () => {
+    mockFetch.mockResolvedValue(makeFetchOk([]));
+
+    const { result } = renderHook(() => useSprintMetrics("release"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const ids = result.current.data!.map((m) => m.id);
+    expect(ids).not.toContain("rel-future");
+    const fetchedUrls = mockFetch.mock.calls.map((c) => c[0] as string);
+    expect(fetchedUrls).not.toContain("/api/aha/releases/rel-future/features");
+  });
+
   it("respects the limit parameter", async () => {
     // Feed only 1 response — limit=1 means only 1 fetch
     mockFetch.mockResolvedValueOnce(makeFetchOk([]));
@@ -303,6 +335,21 @@ describe("iteration mode basics", () => {
 
     const ids = result.current.data!.map((m) => m.id);
     expect(ids).not.toContain("iter-3");
+  });
+
+  it("excludes future iterations (start_date after today)", async () => {
+    mockFetch.mockResolvedValue(makeFetchOk([]));
+
+    const { result } = renderHook(() => useSprintMetrics("iteration"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const ids = result.current.data!.map((m) => m.id);
+    expect(ids).not.toContain("iter-future");
+    const fetchedUrls = mockFetch.mock.calls.map((c) => c[0] as string);
+    expect(fetchedUrls).not.toContain("/api/aha/iterations/ITER-FUTURE/features");
   });
 
   it("uses sourceType=iteration in returned metrics", async () => {
@@ -665,6 +712,36 @@ describe("query key includes fingerprints", () => {
     // The new query should fetch for the new release
     const allUrls = mockFetch.mock.calls.map((c) => c[0] as string);
     expect(allUrls).toContain("/api/aha/releases/rel-new/features");
+  });
+
+  it("re-fetches when release metadata changes without changing IDs", async () => {
+    mockFetch.mockResolvedValue(makeFetchOk([]));
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      () => useSprintMetrics("release"),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const firstCallCount = mockFetch.mock.calls.length;
+
+    mockUseReleases.mockReturnValue({
+      data: {
+        releases: mockReleases.map((release) =>
+          release.id === "rel-1"
+            ? { ...release, start_date: "2026-02-01" }
+            : release
+        ),
+        productId: "prod-1",
+      },
+    } as ReturnType<typeof useReleases>);
+
+    rerender();
+
+    await waitFor(() =>
+      expect(mockFetch.mock.calls.length).toBeGreaterThan(firstCallCount)
+    );
   });
 
   it("does not re-fetch when the releases list is unchanged (same key)", async () => {

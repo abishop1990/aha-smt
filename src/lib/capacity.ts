@@ -1,5 +1,5 @@
-import { differenceInBusinessDays, parseISO } from "date-fns";
 import type { AhaFeature } from "./aha-types";
+import { countBusinessDaysInclusive } from "./date-utils";
 
 export interface DayOffEntry {
   userId?: string | null;
@@ -26,10 +26,7 @@ export function calculateMemberCapacities(
 ): Record<string, MemberCapacity> {
   if (!startDate || !endDate) return {};
 
-  const totalBusinessDays = differenceInBusinessDays(
-    parseISO(endDate),
-    parseISO(startDate)
-  );
+  const totalBusinessDays = countBusinessDaysInclusive(startDate, endDate);
 
   // Build a map of userId -> personal days off count
   const daysOffByUser = new Map<string, number>();

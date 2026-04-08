@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import type { AhaRelease, AhaFeature } from "@/lib/aha-types";
 import { getPoints, formatPoints } from "@/lib/points";
+import { formatAhaDate } from "@/lib/date-utils";
 
 interface SprintOverviewProps {
   release?: AhaRelease;
@@ -9,15 +10,6 @@ interface SprintOverviewProps {
   endDate?: string | null;
   features: AhaFeature[];
   daysRemaining: number;
-}
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "N/A";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function SprintOverview({ release, sprintName: _sprintName, startDate, endDate, features, daysRemaining }: SprintOverviewProps) {
@@ -39,7 +31,7 @@ export function SprintOverview({ release, sprintName: _sprintName, startDate, en
         </CardHeader>
         <CardContent>
           <p className="text-lg font-semibold text-text-primary">
-            {formatDate(start)} &ndash; {formatDate(end)}
+            {formatAhaDate(start)} &ndash; {formatAhaDate(end)}
           </p>
         </CardContent>
       </Card>
