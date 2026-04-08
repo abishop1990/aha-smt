@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { formatAhaDate } from "@/lib/date-utils";
 
 interface DaysOffIndicatorProps {
   userId: string;
@@ -90,11 +91,7 @@ export function DaysOffIndicator({
                 >
                   <div>
                     <span className="font-medium text-text-primary">
-                      {new Date(d.date).toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatAhaDate(d.date, "EEE, MMM d")}
                     </span>
                     {d.reason && (
                       <span className="ml-2 text-text-muted">{d.reason}</span>

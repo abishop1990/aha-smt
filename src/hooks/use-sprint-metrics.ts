@@ -5,6 +5,7 @@ import { useReleases } from "./use-releases";
 import { useIterations } from "./use-iterations";
 import type { AhaFeature } from "@/lib/aha-types";
 import { getPoints } from "@/lib/points";
+import { getLocalDateString } from "@/lib/date-utils";
 
 export interface SprintMetrics {
   id: string;
@@ -83,17 +84,23 @@ export function useSprintMetrics(sourceType: "release" | "iteration", limit = 10
 
   // Include a fingerprint of the upstream data in the key so metrics recompute
   // when releases or iterations change (stale-closure prevention).
-  const releaseIds = releasesData?.releases.map((r) => r.id).join(",") ?? "";
-  const iterationIds = iterationsData?.iterations.map((i) => i.id).join(",") ?? "";
+  const releaseFingerprint = releasesData?.releases
+    .map((r) => [r.id, r.start_date ?? "", r.release_date ?? "", r.parking_lot ? "1" : "0"].join(":"))
+    .join(",") ?? "";
+  const iterationFingerprint = iterationsData?.iterations
+    .map((i) => [i.id, i.start_date ?? "", i.end_date ?? "", i.status].join(":"))
+    .join(",") ?? "";
 
   return useQuery<SprintMetrics[]>({
-    queryKey: ["sprint-metrics", sourceType, limit, releaseIds, iterationIds],
+    queryKey: ["sprint-metrics", sourceType, limit, releaseFingerprint, iterationFingerprint],
     queryFn: async () => {
+      const today = getLocalDateString();
+
       if (sourceType === "iteration") {
         const iterations = iterationsData?.iterations ?? [];
-        // Sort by start date descending, take last N
+        // Sort by start date descending, take last N; exclude future sprints
         const sorted = [...iterations]
-          .filter((it) => it.start_date) // Only include iterations with dates
+          .filter((it) => it.start_date && it.start_date <= today)
           .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))
           .slice(0, limit);
 
@@ -117,7 +124,7 @@ export function useSprintMetrics(sourceType: "release" | "iteration", limit = 10
         return results.reverse();
       } else {
         const releases = (releasesData?.releases ?? [])
-          .filter((r) => !r.parking_lot && r.start_date); // Exclude parking lot and releases without dates
+          .filter((r) => !r.parking_lot && r.start_date && r.start_date <= today);
 
         // Sort by start date descending, take last N
         const sorted = [...releases]
