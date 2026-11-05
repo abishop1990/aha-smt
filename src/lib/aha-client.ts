@@ -9,7 +9,8 @@ import type {
   AhaTeam,
   AhaUser,
   AhaEpic,
-  AhaVote,
+  IterationMemberCapacity,
+  PlanningPokerVote,
 } from "./aha-types";
 import { isUnestimated } from "./points";
 
@@ -300,48 +301,41 @@ export async function listFeaturesForEpic(
   return features;
 }
 
-// GraphQL query used by listFeaturesInProduct (defined once, shared across pages)
-const PRODUCT_FEATURES_QUERY = `
-  query($projectId: ID!, $page: Int!, $per: Int!) {
-    features(filters: { projectId: $projectId }, page: $page, per: $per) {
-      nodes {
-        id
-        referenceNum
-        name
-        workDone {
-          value
-        }
-        originalEstimate {
-          value
-        }
-        score
-        workflowStatus {
-          id
-          name
-          position
-          color
-          internalMeaning
-        }
-        workflowKind {
-          id
-          name
-        }
-        assignedToUser {
-          id
-          name
-          email
-        }
-        tags {
-          name
-        }
-        teamLocation
-        position
-        createdAt
-      }
-      isLastPage
-    }
-  }
+const PRODUCT_FEATURE_NODE_FIELDS = `
+  id
+  referenceNum
+  name
+  workDone { value }
+  originalEstimate { value }
+  score
+  workflowStatus { id name position color internalMeaning }
+  workflowKind { id name }
+  assignedToUser { id name email }
+  tags { name }
+  teamLocation
+  position
+  createdAt
 `;
+
+// Aha's workflow meanings; WorkflowMeaningEnum in the GraphQL schema
+const WORKFLOW_MEANINGS = ["NOT_STARTED", "IN_PROGRESS", "DONE", "SHIPPED", "WONT_DO", "ALREADY_EXISTS"] as const;
+type WorkflowMeaning = (typeof WORKFLOW_MEANINGS)[number];
+
+/** Aha's maximum page size for feature queries (larger requests are silently capped at 500). */
+const PRODUCT_FEATURES_PER_PAGE = 500;
+// Without an explicit order Aha's pages overlap: 10 pages of a 4,537-feature
+// product held only 3,395 distinct features. createdAt is unique in practice;
+// position breaks any tie.
+const PRODUCT_FEATURES_ORDER = "[{ name: createdAt, direction: ASC }, { name: position, direction: ASC }]";
+
+/** Safety cap on pages per meaning (100k features). */
+const PRODUCT_FEATURES_MAX_PAGES = 200;
+
+function productFeaturesFilter(meaning: WorkflowMeaning | null): string {
+  return meaning
+    ? `{ projectId: $projectId, workflowMeaning: ${meaning} }`
+    : "{ projectId: $projectId }";
+}
 
 type ProductFeaturesGqlNode = {
   id: string;
@@ -381,15 +375,36 @@ type ProductFeaturesGqlResult = {
 
 async function fetchProductFeaturesPage(
   productId: string,
-  page: number,
-  perPage: number
-): Promise<ProductFeaturesGqlResult["features"]> {
+  meaning: WorkflowMeaning | null,
+  page: number
+): Promise<ProductFeaturesGqlNode[]> {
   const result = await ahaGraphQL<ProductFeaturesGqlResult>(
-    PRODUCT_FEATURES_QUERY,
-    { projectId: productId, page, per: perPage },
+    `query($projectId: ID!, $page: Int!, $per: Int!) {
+      features(filters: ${productFeaturesFilter(meaning)}, order: ${PRODUCT_FEATURES_ORDER}, page: $page, per: $per) {
+        nodes { ${PRODUCT_FEATURE_NODE_FIELDS} }
+        isLastPage
+      }
+    }`,
+    { projectId: productId, page, per: PRODUCT_FEATURES_PER_PAGE },
     300
   );
-  return result.features;
+  return result.features.nodes;
+}
+
+/** Feature counts per meaning (or for the whole product) in one cheap request. */
+async function countProductFeatures(
+  productId: string,
+  meanings: Array<WorkflowMeaning | null>
+): Promise<number[]> {
+  const selections = meanings
+    .map((m, i) => `c${i}: features(filters: ${productFeaturesFilter(m)}, per: 1) { totalCount }`)
+    .join("\n");
+  const result = await ahaGraphQL<Record<string, { totalCount: number }>>(
+    `query($projectId: ID!) { ${selections} }`,
+    { projectId: productId },
+    300
+  );
+  return meanings.map((_, i) => result[`c${i}`]?.totalCount ?? 0);
 }
 
 function mapProductFeatureNode(
@@ -422,53 +437,46 @@ function mapProductFeatureNode(
 }
 
 /**
- * Fetch ALL features from a product with optional team_location filter.
- * Uses GraphQL v2 API which returns team_location efficiently.
- * Filters client-side by team_location since the API doesn't support server-side filtering.
+ * Fetch features from a product via GraphQL v2, then filter by team_location,
+ * tag, workflow kind and estimate in memory (Aha can't filter on those).
  *
- * Pagination strategy: fetch page 1 first, then fire remaining pages in parallel
- * batches of 4 (safe within the 20 req/s burst limit). Safety cap: 20 pages (4000 features).
+ * `incompleteOnly` asks Aha to return only features whose workflow meaning is not
+ * one of the configured complete meanings, which skips most of a mature product.
+ *
+ * Requests: one aliased count request, then every page in parallel.
  */
 export async function listFeaturesInProduct(
   productId: string,
-  options?: { teamLocation?: string; tag?: string; unestimatedOnly?: boolean; excludeWorkflowKinds?: string[] }
-): Promise<AhaFeature[]> {
-  const perPage = 200;
-  const BATCH_SIZE = 4;
-  const MAX_PAGES = 20;
-
-  // Fetch all pages in parallel batches of BATCH_SIZE, starting from page 1.
-  // Including page 1 in the first batch eliminates one sequential round-trip for
-  // large products (>4 pages) vs the old "fetch page 1 first, then batch the rest" approach.
-  const allNodes: ProductFeaturesGqlNode[] = [];
-  let nextPage = 1;
-  let done = false;
-
-  while (!done && nextPage <= MAX_PAGES) {
-    const batchPages: number[] = [];
-    for (let i = 0; i < BATCH_SIZE && nextPage + i <= MAX_PAGES; i++) {
-      batchPages.push(nextPage + i);
-    }
-    nextPage += BATCH_SIZE;
-
-    const batchResults = await Promise.all(
-      batchPages.map((p) => fetchProductFeaturesPage(productId, p, perPage))
-    );
-
-    for (const pageResult of batchResults) {
-      allNodes.push(...pageResult.nodes);
-      if (pageResult.isLastPage) {
-        done = true;
-        break;
-      }
-    }
+  options?: {
+    teamLocation?: string;
+    tag?: string;
+    unestimatedOnly?: boolean;
+    incompleteOnly?: boolean;
+    excludeWorkflowKinds?: string[];
   }
-
-  // Map GraphQL nodes to AhaFeature format
+): Promise<AhaFeature[]> {
   const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
+  const meanings: Array<WorkflowMeaning | null> = options?.incompleteOnly
+    ? WORKFLOW_MEANINGS.filter((m) => !completeMeanings.has(m))
+    : [null];
+
+  const counts = await countProductFeatures(productId, meanings);
+  const pageRequests = meanings.flatMap((meaning, i) => {
+    const pages = Math.min(
+      Math.ceil(counts[i] / PRODUCT_FEATURES_PER_PAGE),
+      PRODUCT_FEATURES_MAX_PAGES
+    );
+    return Array.from({ length: pages }, (_, p) => ({ meaning, page: p + 1 }));
+  });
+
+  const pageResults = await Promise.all(
+    pageRequests.map(({ meaning, page }) => fetchProductFeaturesPage(productId, meaning, page))
+  );
+  const allNodes = pageResults.flat();
+
   const mappedFeatures = allNodes.map((node) => mapProductFeatureNode(node, completeMeanings));
 
-  // Deduplicate by feature ID (API sometimes returns duplicates)
+  // A feature edited while pages are in flight can shift pages and appear twice
   const uniqueFeatures = Array.from(
     new Map(mappedFeatures.map((f) => [f.id, f])).values()
   );
@@ -606,7 +614,7 @@ const ITERATION_STATUS_MAP: Record<number, AhaIteration["status"]> = {
   30: "complete",
 };
 
-interface GqlIteration {
+interface GqlIterationHeader {
   id: string;
   name: string;
   referenceNum: string;
@@ -614,19 +622,31 @@ interface GqlIteration {
   startDate: string | null;
   endDate: string | null;
   capacity: { value: number; units: string } | null;
-  records: Array<{
-    id: string;
-    referenceNum: string;
-    name: string;
-    originalEstimate: { value: number; units: string } | null;
-    workflowStatus: { id: string; name: string; color: number; position: number; internalMeaning: string | null } | null;
-    assignedToUser: { id: string; name: string; email: string } | null;
-    tags: Array<{ name: string }> | null;
-    createdAt: string;
+  originalEstimate: { value: number | null } | null;
+}
+
+interface GqlIterationRecord {
+  id: string;
+  referenceNum: string;
+  name: string;
+  originalEstimate: { value: number; units: string } | null;
+  workflowStatus: { id: string; name: string; color: number; position: number; internalMeaning: string | null } | null;
+  assignedToUser: { id: string; name: string; email: string } | null;
+  tags: Array<{ name: string }> | null;
+  createdAt: string;
+}
+
+interface GqlIterationDetail extends GqlIterationHeader {
+  // Non-feature records (e.g. requirements) come back as empty objects
+  records: Array<GqlIterationRecord | Record<string, never>>;
+  teamMembers: Array<{
+    storyPoints: number | null;
+    hasNonWorkingDays: boolean;
+    user: { id: string; name: string } | null;
   }>;
 }
 
-function mapGqlIteration(gql: GqlIteration): AhaIteration {
+function mapGqlIteration(gql: GqlIterationHeader): AhaIteration {
   return {
     id: gql.id,
     name: gql.name,
@@ -635,13 +655,13 @@ function mapGqlIteration(gql: GqlIteration): AhaIteration {
     start_date: gql.startDate,
     end_date: gql.endDate,
     capacity: gql.capacity?.value ?? null,
-    feature_count: gql.records.length,
+    planned_points: gql.originalEstimate?.value ?? null,
   };
 }
 
 import { getConfigSync } from "./config";
 
-function mapGqlFeature(rec: GqlIteration["records"][number], completeMeanings: Set<string>): AhaFeature {
+function mapGqlFeature(rec: GqlIterationRecord, completeMeanings: Set<string>): AhaFeature {
   const ws = rec.workflowStatus;
   return {
     id: rec.id,
@@ -664,33 +684,27 @@ function mapGqlFeature(rec: GqlIteration["records"][number], completeMeanings: S
   };
 }
 
-const ITERATION_FIELDS = `
+// The list carries no feature records: records are the expensive part (pulling
+// them for every iteration takes several seconds and trips Aha's per-request
+// object cap), and the sprint list only needs headers.
+const ITERATION_HEADER_FIELDS = `
   id name referenceNum status startDate endDate
   capacity { value units }
-  records {
-    ... on Feature {
-      id referenceNum name
-      originalEstimate { value units }
-      workflowStatus { id name color position internalMeaning }
-      assignedToUser { id name email }
-      tags { name }
-      createdAt
-    }
-  }
+  originalEstimate { value }
 `;
 
 export async function listIterations(teamProductId: string): Promise<AhaIteration[]> {
   const allIterations: AhaIteration[] = [];
   let page = 1;
-  const perPage = 50;
+  const perPage = 100;
 
   while (true) {
     const data = await ahaGraphQL<{
-      iterations: { nodes: GqlIteration[]; isLastPage: boolean };
+      iterations: { nodes: GqlIterationHeader[]; isLastPage: boolean };
     }>(
       `query($projectId: ID!, $page: Int!, $per: Int!) {
         iterations(filters: { projectId: $projectId }, page: $page, per: $per) {
-          nodes { ${ITERATION_FIELDS} }
+          nodes { ${ITERATION_HEADER_FIELDS} }
           isLastPage
         }
       }`,
@@ -706,60 +720,74 @@ export async function listIterations(teamProductId: string): Promise<AhaIteratio
   return allIterations;
 }
 
-export async function getIteration(
-  teamProductId: string,
-  referenceNum: string
-): Promise<AhaIteration | undefined> {
-  const iterations = await listIterations(teamProductId);
-  return iterations.find((it) => it.reference_num === referenceNum);
+export interface IterationDetail {
+  iteration: AhaIteration;
+  features: AhaFeature[];
+  teamCapacity: IterationMemberCapacity[];
+}
+
+/**
+ * One iteration with its features and per-member team capacity, in a single
+ * GraphQL request. Aha accepts a reference number (e.g. "DEV-SP-38") as the id.
+ */
+export async function getIterationDetail(referenceNum: string): Promise<IterationDetail | undefined> {
+  const data = await ahaGraphQL<{ iteration: GqlIterationDetail | null }>(
+    `query($id: ID!) {
+      iteration(id: $id) {
+        ${ITERATION_HEADER_FIELDS}
+        records {
+          ... on Feature {
+            id referenceNum name
+            originalEstimate { value units }
+            workflowStatus { id name color position internalMeaning }
+            assignedToUser { id name email }
+            tags { name }
+            createdAt
+          }
+        }
+        teamMembers { storyPoints hasNonWorkingDays user { id name } }
+      }
+    }`,
+    { id: referenceNum },
+    120
+  );
+
+  const gql = data.iteration;
+  if (!gql) return undefined;
+
+  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
+  const features = gql.records
+    .filter((rec): rec is GqlIterationRecord => "id" in rec)
+    .map((rec) => mapGqlFeature(rec, completeMeanings));
+
+  const teamCapacity = gql.teamMembers.flatMap((m) =>
+    m.user && m.storyPoints != null
+      ? [{
+          userId: m.user.id,
+          name: m.user.name,
+          storyPoints: m.storyPoints,
+          hasNonWorkingDays: m.hasNonWorkingDays,
+        }]
+      : []
+  );
+
+  return {
+    iteration: { ...mapGqlIteration(gql), feature_count: features.length },
+    features,
+    teamCapacity,
+  };
+}
+
+export async function getIteration(referenceNum: string): Promise<AhaIteration | undefined> {
+  return (await getIterationDetail(referenceNum))?.iteration;
 }
 
 export async function listFeaturesInIteration(
-  teamProductId: string,
-  iterationRef: string,
+  referenceNum: string,
   options?: { unestimatedOnly?: boolean }
 ): Promise<AhaFeature[]> {
-  // Fetch all iterations (cached), find the one we need, extract its records
-  const allIterations = await listIterationsWithFeatures(teamProductId);
-  const iteration = allIterations.find((it) => it.referenceNum === iterationRef);
-
-  if (!iteration) return [];
-
-  const completeMeanings = new Set(getConfigSync().workflow.completeMeanings);
-  const features = iteration.records.map((rec) => mapGqlFeature(rec, completeMeanings));
-
-  if (options?.unestimatedOnly) {
-    return features.filter(isUnestimated);
-  }
-  return features;
-}
-
-/** Internal: returns raw GraphQL iterations with records intact for feature extraction */
-async function listIterationsWithFeatures(teamProductId: string): Promise<GqlIteration[]> {
-  const allIterations: GqlIteration[] = [];
-  let page = 1;
-  const perPage = 50;
-
-  while (true) {
-    const data = await ahaGraphQL<{
-      iterations: { nodes: GqlIteration[]; isLastPage: boolean };
-    }>(
-      `query($projectId: ID!, $page: Int!, $per: Int!) {
-        iterations(filters: { projectId: $projectId }, page: $page, per: $per) {
-          nodes { ${ITERATION_FIELDS} }
-          isLastPage
-        }
-      }`,
-      { projectId: teamProductId, page, per: perPage },
-      120
-    );
-
-    allIterations.push(...data.iterations.nodes);
-    if (data.iterations.isLastPage) break;
-    page++;
-  }
-
-  return allIterations;
+  const features = (await getIterationDetail(referenceNum))?.features ?? [];
+  return options?.unestimatedOnly ? features.filter(isUnestimated) : features;
 }
 
 export async function updateFeatureWorkUnits(
@@ -795,28 +823,69 @@ export async function updateFeatureEstimate(
 }
 
 
-export async function listFeatureVotes(featureId: string): Promise<AhaVote[]> {
-  const res = await ahaFetch<{ votes?: AhaVote[] }>(
-    `/features/${featureId}/votes`,
-    { params: { fields: "id,user,created_at" }, noCache: true }
-  );
-  return res.votes ?? [];
+// --- Planning poker (Aha Develop extension) ---
+// The aha-develop.planning-poker extension stores one extension field per voter,
+// named "estimate:<userId>", on the feature. These fields are not exposed by REST v1.
+const PLANNING_POKER_EXTENSION = "aha-develop.planning-poker";
+
+/** Max features per batched votes request; keeps one request well under Aha's object cap. */
+export const PLANNING_POKER_BATCH_SIZE = 50;
+
+interface GqlExtensionField {
+  name: string;
+  updatedAt: string;
+  value: { id?: string; name?: string; estimate?: number | null; unknown?: boolean } | null;
+  extension: { identifier: string } | null;
 }
 
-export async function createFeatureVote(featureId: string): Promise<AhaVote> {
-  const res = await ahaFetch<{ vote: AhaVote }>(
-    `/features/${featureId}/votes`,
-    { method: "POST", body: {} }
+/**
+ * Planning-poker votes for many features in one GraphQL request (one aliased
+ * `feature` lookup per id). Returns votes keyed by feature id.
+ */
+export async function listPlanningPokerVotes(
+  featureIds: string[]
+): Promise<Record<string, PlanningPokerVote[]>> {
+  if (featureIds.length === 0) return {};
+  if (featureIds.length > PLANNING_POKER_BATCH_SIZE) {
+    throw new Error(`At most ${PLANNING_POKER_BATCH_SIZE} features per request`);
+  }
+
+  const varDefs = featureIds.map((_, i) => `$id${i}: ID!`).join(", ");
+  const selections = featureIds
+    .map(
+      (_, i) =>
+        `f${i}: feature(id: $id${i}) { extensionFields { name updatedAt value extension { identifier } } }`
+    )
+    .join("\n");
+  const variables = Object.fromEntries(featureIds.map((id, i) => [`id${i}`, id]));
+
+  const data = await ahaGraphQL<Record<string, { extensionFields: GqlExtensionField[] } | null>>(
+    `query(${varDefs}) { ${selections} }`,
+    variables,
+    30
   );
-  return res.vote;
+
+  return Object.fromEntries(
+    featureIds.map((id, i) => [id, toPokerVotes(data[`f${i}`]?.extensionFields ?? [])])
+  );
 }
 
-export async function deleteFeatureVote(featureId: string, voteId: string): Promise<void> {
-  await ahaFetch<unknown>(
-    `/features/${featureId}/votes/${voteId}`,
-    { method: "DELETE" }
-  );
+function toPokerVotes(fields: GqlExtensionField[]): PlanningPokerVote[] {
+  return fields
+    .filter(
+      (f) =>
+        f.extension?.identifier === PLANNING_POKER_EXTENSION &&
+        f.name.startsWith("estimate:") &&
+        f.value
+    )
+    .map((f) => ({
+      userId: f.value?.id ?? f.name.slice("estimate:".length),
+      name: f.value?.name ?? "Unknown",
+      estimate: f.value?.unknown ? null : (f.value?.estimate ?? null),
+      updatedAt: f.updatedAt,
+    }));
 }
+
 export async function listEpicsForProduct(productId: string): Promise<AhaEpic[]> {
   return ahaFetchAllPages<AhaEpic>(
     `/products/${productId}/epics`,

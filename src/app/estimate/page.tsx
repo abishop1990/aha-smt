@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { useReleases } from "@/hooks/use-releases";
 import { useFeatures, useFeature, useUpdateFeatureEstimate } from "@/hooks/use-features";
 import { useFeaturesByTag } from "@/hooks/use-features-by-tag";
@@ -13,6 +14,8 @@ import { EstimationQueue } from "@/components/estimate/estimation-queue";
 import { EstimationCard } from "@/components/estimate/estimation-card";
 import { CriteriaScorer } from "@/components/estimate/criteria-scorer";
 import { PointPicker } from "@/components/estimate/point-picker";
+import { PlanningPokerPanel } from "@/components/estimate/planning-poker-panel";
+import { EstimationContextPanel } from "@/components/estimate/estimation-context-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
@@ -33,7 +36,7 @@ function EstimatePageContent() {
   // team_locations are derived from the response (no separate hook needed).
   const productFeatures = useProductFeatures(
     filterType === "team_location" ? teamProductId : null,
-    { unestimatedOnly: true }
+    { unestimatedOnly: true, incompleteOnly: true }
   );
 
   // Determine which filter to use based on config
@@ -67,7 +70,7 @@ function EstimatePageContent() {
   const tagFeatures = useFeaturesByTag(
     filterType === "tag" ? teamProductId : null,
     filterType === "tag" ? tagFilter : null,
-    { unestimatedOnly: true }
+    { unestimatedOnly: true, incompleteOnly: true }
   );
   const epicFeatures = useFeaturesByEpic(
     filterType === "epic" ? epicId : null,
@@ -109,6 +112,7 @@ function EstimatePageContent() {
   const isLoading = selectionPending || featuresLoading;
 
   const updateEstimate = useUpdateFeatureEstimate();
+  const queryClient = useQueryClient();
 
   const excludeWorkflowKinds = config?.backlog.excludeWorkflowKinds;
   const features = useMemo(
@@ -146,6 +150,7 @@ function EstimatePageContent() {
   }, [features, searchParams]);
 
   const currentFeature = features[currentIndex] ?? null;
+  const queueIds = useMemo(() => features.map((f) => f.id), [features]);
 
   // Fetch full detail (description, epic, etc.) for the currently-displayed card
   const { data: currentFeatureDetail } = useFeature(currentFeature?.id ?? null);
@@ -180,7 +185,9 @@ function EstimatePageContent() {
             suggestedPoints,
             finalPoints: points,
           }),
-        }).catch(() => {}); // Best effort
+        })
+          .then(() => queryClient.invalidateQueries({ queryKey: ["estimation-history"] }))
+          .catch(() => {}); // Best effort
 
         toast.success(`Estimated ${currentFeature.reference_num} at ${points} points`);
 
@@ -207,7 +214,7 @@ function EstimatePageContent() {
         console.error("Estimation error:", error);
       }
     },
-    [currentFeature, currentIndex, criteria, suggestedPoints, features.length, updateEstimate]
+    [currentFeature, currentIndex, criteria, suggestedPoints, features.length, updateEstimate, queryClient]
   );
 
   const handleSkip = useCallback(() => {
@@ -224,7 +231,8 @@ function EstimatePageContent() {
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-4 gap-6">
           <Skeleton className="h-96 col-span-1" />
-          <Skeleton className="h-96 col-span-3" />
+          <Skeleton className="h-96 col-span-2" />
+          <Skeleton className="h-96 col-span-1" />
         </div>
       </div>
     );
@@ -305,9 +313,10 @@ function EstimatePageContent() {
         </div>
 
         {/* Main estimation area */}
-        <div className="col-span-9 space-y-6">
+        <div className="col-span-6 space-y-6">
           {cardFeature && <EstimationCard feature={cardFeature} />}
 
+          {currentFeature && <PlanningPokerPanel featureId={currentFeature.id} queueIds={queueIds} />}
 
           <CriteriaScorer criteria={criteria} onChange={setCriteria} />
 
@@ -328,6 +337,17 @@ function EstimatePageContent() {
 
           {updateEstimate.isPending && (
             <p className="text-sm text-text-secondary">Saving to Aha...</p>
+          )}
+        </div>
+
+        {/* Calibration context */}
+        <div className="col-span-3">
+          {currentFeature && (
+            <EstimationContextPanel
+              featureId={currentFeature.id}
+              epic={currentFeatureDetail?.epic}
+              criteria={criteria}
+            />
           )}
         </div>
       </div>

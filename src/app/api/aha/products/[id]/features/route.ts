@@ -9,7 +9,8 @@ type RouteContext = {
 
 /**
  * GET /api/aha/products/:id/features
- * Returns features for a product, optionally filtered by team_location
+ * Returns features for a product, optionally filtered by team_location.
+ * ?incomplete=true skips features in a complete workflow state (filtered by Aha, so far fewer requests).
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const teamLocation = searchParams.get("teamLocation");
     const tag = searchParams.get("tag");
     const unestimatedOnly = searchParams.get("unestimated") === "true";
+    const incompleteOnly = searchParams.get("incomplete") === "true";
 
     // Get config for workflow kind exclusions
     const { loadConfigFromDb } = await import("@/lib/config.server");
@@ -29,6 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       teamLocation: teamLocation ?? undefined,
       tag: tag ?? undefined,
       unestimatedOnly,
+      incompleteOnly,
       excludeWorkflowKinds: config.backlog.excludeWorkflowKinds,
     });
 

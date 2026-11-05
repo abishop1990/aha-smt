@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useMemo } from "react";
-import { useIterations } from "@/hooks/use-iterations";
 import { useIterationFeatures } from "@/hooks/use-iteration-features";
 import { useDaysOff } from "@/hooks/use-schedules";
 import { useSettings } from "@/hooks/use-settings";
@@ -20,12 +19,10 @@ export default function IterationDetailPage({
 }) {
   const { ref } = use(params);
 
-  const { data: iterationsData, isLoading: iterationsLoading } = useIterations();
-  const iterations = iterationsData?.iterations ?? [];
-  const iteration = iterations.find((i) => i.reference_num === ref);
-
-  const { data: featuresData, isLoading: featuresLoading } = useIterationFeatures(ref);
-  const features = useMemo(() => featuresData?.features ?? [], [featuresData]);
+  // One request returns the iteration header, its features and Aha team capacity
+  const { data: iterationData, isLoading } = useIterationFeatures(ref);
+  const iteration = iterationData?.iteration;
+  const features = useMemo(() => iterationData?.features ?? [], [iterationData]);
   const { data: settings } = useSettings();
   const pointsPerDay = parseFloat(settings?.defaultPointsPerDay ?? "1");
 
@@ -53,12 +50,11 @@ export default function IterationDetailPage({
         endDate,
         features,
         daysOffData?.daysOff ?? [],
-        pointsPerDay
+        pointsPerDay,
+        iterationData?.teamCapacity
       ),
-    [startDate, endDate, features, daysOffData, pointsPerDay]
+    [startDate, endDate, features, daysOffData, pointsPerDay, iterationData]
   );
-
-  const isLoading = iterationsLoading || featuresLoading;
 
   if (isLoading) {
     return (

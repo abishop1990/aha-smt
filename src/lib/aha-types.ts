@@ -42,6 +42,9 @@ export interface AhaIteration {
   start_date: string | null;
   end_date: string | null;
   capacity?: number | null;
+  /** Sum of feature estimates Aha reports for the iteration. */
+  planned_points?: number | null;
+  /** Only set when the iteration's features were fetched. */
   feature_count?: number;
 }
 
@@ -87,8 +90,20 @@ export interface AhaTeam {
 }
 
 
-export interface AhaVote {
-  id: string;
-  user: AhaUser;
-  created_at?: string;
+/** One vote cast through Aha's planning-poker extension (aha-develop.planning-poker). */
+export interface PlanningPokerVote {
+  userId: string;
+  name: string;
+  /** null when the voter picked "?" (unknown) */
+  estimate: number | null;
+  updatedAt: string;
+}
+
+/** Per-member capacity Aha Develop sets on an iteration's team. */
+export interface IterationMemberCapacity {
+  userId: string;
+  name: string;
+  storyPoints: number;
+  /** True when Aha already accounts for this member's non-working days. */
+  hasNonWorkingDays: boolean;
 }

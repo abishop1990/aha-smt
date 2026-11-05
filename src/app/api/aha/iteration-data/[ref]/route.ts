@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getIteration, listFeaturesInIteration, listUsersInProduct } from "@/lib/aha-client";
+import { getIterationDetail, listUsersInProduct } from "@/lib/aha-client";
 import { getEnv } from "@/lib/env";
 
 export async function GET(
@@ -18,22 +18,19 @@ export async function GET(
       );
     }
 
-    // GraphQL returns iteration+features in a single cached call,
-    // so these two share the same underlying request
-    const [iteration, features, users] = await Promise.all([
-      getIteration(teamProductId, ref),
-      listFeaturesInIteration(teamProductId, ref),
+    const [detail, users] = await Promise.all([
+      getIterationDetail(ref),
       listUsersInProduct(teamProductId),
     ]);
 
-    if (!iteration) {
+    if (!detail) {
       return NextResponse.json(
         { error: "Iteration not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ iteration, features, users });
+    return NextResponse.json({ ...detail, users });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch iteration data";
     return NextResponse.json({ error: message }, { status: 500 });

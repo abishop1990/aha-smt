@@ -1,4 +1,4 @@
-import type { AhaFeature } from "./aha-types";
+import type { AhaFeature, IterationMemberCapacity } from "./aha-types";
 import { countBusinessDaysInclusive } from "./date-utils";
 
 export interface DayOffEntry {
@@ -11,18 +11,26 @@ export interface MemberCapacity {
   capacity: number;
   pointsPerDay: number;
   daysOff: number;
+  /** "aha" when the base capacity came from the Aha iteration team, "local" when computed from points-per-day. */
+  source: "aha" | "local";
 }
 
 /**
  * Calculate per-member capacity from sprint dates, feature assignments,
  * days off, and a default points-per-day rate.
+ *
+ * When `ahaMembers` is given (Aha iteration team capacity), every team member is
+ * listed with Aha's story points as the base. Locally recorded days off scale that
+ * base down, except for members whose non-working days Aha already tracks.
+ * Assignees outside the Aha team fall back to points-per-day.
  */
 export function calculateMemberCapacities(
   startDate: string | null,
   endDate: string | null,
   features: AhaFeature[],
   daysOffList: DayOffEntry[],
-  pointsPerDay: number
+  pointsPerDay: number,
+  ahaMembers: IterationMemberCapacity[] = []
 ): Record<string, MemberCapacity> {
   if (!startDate || !endDate) return {};
 
@@ -38,9 +46,24 @@ export function calculateMemberCapacities(
     }
   }
 
-  // Build capacity per member from features' assignees
   const members: Record<string, MemberCapacity> = {};
 
+  for (const m of ahaMembers) {
+    const userDaysOff = (daysOffByUser.get(m.userId) || 0) + holidayCount;
+    const availableDays = Math.max(0, totalBusinessDays - userDaysOff);
+    const scale =
+      m.hasNonWorkingDays || totalBusinessDays === 0 ? 1 : availableDays / totalBusinessDays;
+    const capacity = Math.round(m.storyPoints * scale * 100) / 100;
+    members[m.userId] = {
+      name: m.name,
+      capacity,
+      pointsPerDay: totalBusinessDays ? Math.round((m.storyPoints / totalBusinessDays) * 100) / 100 : 0,
+      daysOff: m.hasNonWorkingDays ? 0 : userDaysOff,
+      source: "aha",
+    };
+  }
+
+  // Assignees without Aha team capacity use the local points-per-day rate
   for (const f of features) {
     const userId = f.assigned_to_user?.id;
     if (userId && !members[userId]) {
@@ -51,6 +74,7 @@ export function calculateMemberCapacities(
         capacity: availableDays * pointsPerDay,
         pointsPerDay,
         daysOff: userDaysOff,
+        source: "local",
       };
     }
   }

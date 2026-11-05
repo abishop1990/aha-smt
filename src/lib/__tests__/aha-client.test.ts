@@ -17,6 +17,8 @@ import {
   listFeaturesInIteration,
   listFeaturesInProduct,
   listFeaturesForEpic,
+  listPlanningPokerVotes,
+  getIterationDetail,
 } from "@/lib/aha-client";
 import type { AhaFeature, AhaUser, AhaRelease, AhaTeam, AhaProduct } from "@/lib/aha-types";
 
@@ -1049,220 +1051,126 @@ describe("aha-client", () => {
     });
   });
 
-  describe("getIteration", () => {
-    it("finds iteration by reference number", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            iterations: {
-              nodes: [
-                {
-                  id: "iter-1",
-                  name: "Sprint 1",
-                  referenceNum: "SPRINT-1",
-                  status: 20,
-                  startDate: "2024-01-08",
-                  endDate: "2024-01-19",
-                  capacity: { value: 40, units: "points" },
-                  records: [],
-                },
-                {
-                  id: "iter-2",
-                  name: "Sprint 2",
-                  referenceNum: "SPRINT-2",
-                  status: 10,
-                  startDate: null,
-                  endDate: null,
-                  capacity: null,
-                  records: [],
-                },
-              ],
-              isLastPage: true,
-            },
-          },
-        }),
-      });
-
-      const result = await getIteration("product-123", "SPRINT-2");
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe("iter-2");
-      expect(result?.reference_num).toBe("SPRINT-2");
+  describe("getIterationDetail (single GraphQL request)", () => {
+    const featureRecord = (overrides: Record<string, unknown>) => ({
+      id: "feat-1",
+      referenceNum: "FEAT-1",
+      name: "Feature 1",
+      originalEstimate: null,
+      workflowStatus: null,
+      assignedToUser: null,
+      tags: null,
+      createdAt: "2024-01-01T00:00:00Z",
+      ...overrides,
     });
 
-    it("returns undefined for non-existent iteration", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            iterations: {
-              nodes: [
-                {
-                  id: "iter-1",
-                  name: "Sprint 1",
-                  referenceNum: "SPRINT-1",
-                  status: 20,
-                  startDate: null,
-                  endDate: null,
-                  capacity: null,
-                  records: [],
-                },
-              ],
-              isLastPage: true,
-            },
+    const iterationResponse = (records: unknown[], teamMembers: unknown[] = []) => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          iteration: {
+            id: "iter-1",
+            name: "Sprint 1",
+            referenceNum: "SPRINT-1",
+            status: 20,
+            startDate: "2024-01-08",
+            endDate: "2024-01-19",
+            capacity: { value: 40, units: "points" },
+            originalEstimate: { value: 13 },
+            records,
+            teamMembers,
           },
-        }),
-      });
-
-      const result = await getIteration("product-123", "SPRINT-999");
-
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe("listFeaturesInIteration", () => {
-    it("extracts and maps features from iteration records", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            iterations: {
-              nodes: [
-                {
-                  id: "iter-1",
-                  name: "Sprint 1",
-                  referenceNum: "SPRINT-1",
-                  status: 20,
-                  startDate: "2024-01-08",
-                  endDate: "2024-01-19",
-                  capacity: { value: 40, units: "points" },
-                  records: [
-                    {
-                      id: "feat-1",
-                      referenceNum: "FEAT-1",
-                      name: "Feature 1",
-                      originalEstimate: { value: 5, units: "points" },
-                      workflowStatus: {
-                        id: "ws-1",
-                        name: "In Progress",
-                        color: 255,
-                        position: 2,
-                        internalMeaning: null,
-                      },
-                      assignedToUser: { id: "user-1", name: "Alice", email: "alice@test.com" },
-                      tags: [{ name: "frontend" }],
-                      createdAt: "2024-01-01T00:00:00Z",
-                    },
-                    {
-                      id: "feat-2",
-                      referenceNum: "FEAT-2",
-                      name: "Feature 2",
-                      originalEstimate: { value: 8, units: "points" },
-                      workflowStatus: {
-                        id: "ws-2",
-                        name: "Done",
-                        color: 65280,
-                        position: 4,
-                        internalMeaning: "DONE",
-                      },
-                      assignedToUser: null,
-                      tags: null,
-                      createdAt: "2024-01-02T00:00:00Z",
-                    },
-                  ],
-                },
-              ],
-              isLastPage: true,
-            },
-          },
-        }),
-      });
-
-      const result = await listFeaturesInIteration("product-123", "SPRINT-1");
-
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe("feat-1");
-      expect(result[0].original_estimate).toBe(5);
-      expect(result[0].workflow_status?.color).toBe("#0000ff");
-      expect(result[0].workflow_status?.complete).toBe(false);
-      expect(result[0].assigned_to_user?.name).toBe("Alice");
-      expect(result[0].tags).toEqual(["frontend"]);
-
-      expect(result[1].id).toBe("feat-2");
-      expect(result[1].workflow_status?.color).toBe("#00ff00");
-      expect(result[1].workflow_status?.complete).toBe(true);
-      expect(result[1].assigned_to_user).toBeNull();
-      expect(result[1].tags).toBeUndefined();
+        },
+      }),
     });
 
-    it("returns empty array for non-existent iteration", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            iterations: {
-              nodes: [],
-              isLastPage: true,
-            },
-          },
-        }),
+    it("fetches the iteration by reference number in one request", async () => {
+      mockFetch.mockResolvedValue(iterationResponse([]));
+
+      const result = await getIterationDetail("SPRINT-1");
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.variables).toEqual({ id: "SPRINT-1" });
+      expect(result?.iteration).toMatchObject({
+        id: "iter-1",
+        reference_num: "SPRINT-1",
+        status: "started",
+        capacity: 40,
+        planned_points: 13,
+        feature_count: 0,
       });
+    });
 
-      const result = await listFeaturesInIteration("product-123", "SPRINT-999");
+    it("maps features, skipping non-feature records", async () => {
+      mockFetch.mockResolvedValue(
+        iterationResponse([
+          featureRecord({
+            originalEstimate: { value: 5, units: "points" },
+            workflowStatus: { id: "ws-1", name: "In Progress", color: 255, position: 2, internalMeaning: null },
+            assignedToUser: { id: "user-1", name: "Alice", email: "alice@test.com" },
+            tags: [{ name: "frontend" }],
+          }),
+          {},
+          featureRecord({
+            id: "feat-2",
+            originalEstimate: { value: 8, units: "points" },
+            workflowStatus: { id: "ws-2", name: "Done", color: 65280, position: 4, internalMeaning: "DONE" },
+          }),
+        ])
+      );
 
-      expect(result).toEqual([]);
+      const result = await getIterationDetail("SPRINT-1");
+      const features = result?.features ?? [];
+
+      expect(features.map((f) => f.id)).toEqual(["feat-1", "feat-2"]);
+      expect(result?.iteration.feature_count).toBe(2);
+      expect(features[0].original_estimate).toBe(5);
+      expect(features[0].workflow_status?.color).toBe("#0000ff");
+      expect(features[0].workflow_status?.complete).toBe(false);
+      expect(features[0].assigned_to_user?.name).toBe("Alice");
+      expect(features[0].tags).toEqual(["frontend"]);
+      expect(features[1].workflow_status?.color).toBe("#00ff00");
+      expect(features[1].workflow_status?.complete).toBe(true);
+      expect(features[1].assigned_to_user).toBeNull();
+      expect(features[1].tags).toBeUndefined();
+    });
+
+    it("returns team capacity, skipping members without a user or story points", async () => {
+      mockFetch.mockResolvedValue(
+        iterationResponse([], [
+          { storyPoints: 6.5, hasNonWorkingDays: false, user: { id: "u1", name: "Alice" } },
+          { storyPoints: null, hasNonWorkingDays: false, user: { id: "u2", name: "Bob" } },
+          { storyPoints: 4, hasNonWorkingDays: true, user: null },
+        ])
+      );
+
+      const result = await getIterationDetail("SPRINT-1");
+
+      expect(result?.teamCapacity).toEqual([
+        { userId: "u1", name: "Alice", storyPoints: 6.5, hasNonWorkingDays: false },
+      ]);
+    });
+
+    it("returns undefined for a missing iteration", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => ({ data: { iteration: null } }) });
+
+      expect(await getIterationDetail("SPRINT-999")).toBeUndefined();
+      expect(await getIteration("SPRINT-999")).toBeUndefined();
+      expect(await listFeaturesInIteration("SPRINT-999")).toEqual([]);
     });
 
     it("filters unestimated features when option is set", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          data: {
-            iterations: {
-              nodes: [
-                {
-                  id: "iter-1",
-                  name: "Sprint 1",
-                  referenceNum: "SPRINT-1",
-                  status: 20,
-                  startDate: null,
-                  endDate: null,
-                  capacity: null,
-                  records: [
-                    {
-                      id: "feat-1",
-                      referenceNum: "FEAT-1",
-                      name: "Feature 1",
-                      originalEstimate: null,
-                      workflowStatus: null,
-                      assignedToUser: null,
-                      tags: null,
-                      createdAt: "2024-01-01T00:00:00Z",
-                    },
-                    {
-                      id: "feat-2",
-                      referenceNum: "FEAT-2",
-                      name: "Feature 2",
-                      originalEstimate: { value: 5, units: "points" },
-                      workflowStatus: null,
-                      assignedToUser: null,
-                      tags: null,
-                      createdAt: "2024-01-02T00:00:00Z",
-                    },
-                  ],
-                },
-              ],
-              isLastPage: true,
-            },
-          },
-        }),
-      });
+      mockFetch.mockResolvedValue(
+        iterationResponse([
+          featureRecord({}),
+          featureRecord({ id: "feat-2", originalEstimate: { value: 5, units: "points" } }),
+        ])
+      );
 
-      const result = await listFeaturesInIteration("product-123", "SPRINT-1", { unestimatedOnly: true });
+      const result = await listFeaturesInIteration("SPRINT-1", { unestimatedOnly: true });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe("feat-1");
+      expect(result.map((f) => f.id)).toEqual(["feat-1"]);
     });
   });
 
@@ -1530,6 +1438,8 @@ describe("aha-client", () => {
       ok: true,
       json: async () => ({
         data: {
+          // Same body answers both the count request (c0) and the page request (features)
+          c0: { totalCount: nodes.length },
           features: {
             nodes,
             isLastPage,
@@ -1644,6 +1554,138 @@ describe("aha-client", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("feat-1");
+    });
+  });
+
+  describe("listPlanningPokerVotes (batched GraphQL)", () => {
+    const field = (name: string, value: unknown, identifier = "aha-develop.planning-poker") => ({
+      name,
+      updatedAt: "2026-01-01T00:00:00Z",
+      value,
+      extension: { identifier },
+    });
+
+    it("fetches votes for several features in one aliased request", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          data: {
+            f0: {
+              extensionFields: [
+                field("estimate:111", { id: "111", name: "Alice", estimate: 3 }),
+                field("estimate:222", { id: "222", name: "Bob", estimate: null, unknown: true }),
+                field("estimate:333", { id: "333", name: "Other", estimate: 8 }, "someone-else.extension"),
+                field("settings", { foo: 1 }),
+              ],
+            },
+            f1: { extensionFields: [] },
+            f2: null,
+          },
+        }),
+      });
+
+      const result = await listPlanningPokerVotes(["feat-a", "feat-b", "feat-c"]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.variables).toEqual({ id0: "feat-a", id1: "feat-b", id2: "feat-c" });
+      expect(body.query).toContain("f2: feature(id: $id2)");
+      expect(result).toEqual({
+        "feat-a": [
+          { userId: "111", name: "Alice", estimate: 3, updatedAt: "2026-01-01T00:00:00Z" },
+          { userId: "222", name: "Bob", estimate: null, updatedAt: "2026-01-01T00:00:00Z" },
+        ],
+        "feat-b": [],
+        "feat-c": [],
+      });
+    });
+
+    it("makes no request for an empty list", async () => {
+      expect(await listPlanningPokerVotes([])).toEqual({});
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects batches over the size limit", async () => {
+      const ids = Array.from({ length: 51 }, (_, i) => `f${i}`);
+      await expect(listPlanningPokerVotes(ids)).rejects.toThrow("At most 50");
+    });
+  });
+
+  describe("listFeaturesInProduct request plan", () => {
+    const node = (id: string, meaning: string, estimate: number | null = null) => ({
+      id,
+      referenceNum: id.toUpperCase(),
+      name: id,
+      workDone: null,
+      originalEstimate: estimate == null ? null : { value: estimate },
+      score: null,
+      workflowStatus: { id: "ws", name: meaning, position: 1, color: "#fff", internalMeaning: meaning },
+      workflowKind: null,
+      assignedToUser: null,
+      tags: [],
+      teamLocation: "Prioritized backlog",
+      position: 1,
+      createdAt: "2025-01-01T00:00:00Z",
+    });
+
+    // Answers the aliased count query from `counts` and page queries from `pages[meaning][page]`
+    function mockAha(counts: Record<string, number>, pages: Record<string, unknown[][]>) {
+      mockFetch.mockImplementation(async (_url: string, init: { body: string }) => {
+        const { query, variables } = JSON.parse(init.body);
+        if (query.includes("totalCount")) {
+          const aliases = [...query.matchAll(/(c\d+): features\(filters: \{ projectId: \$projectId(?:, workflowMeaning: (\w+))? \}/g)];
+          const data = Object.fromEntries(
+            aliases.map(([, alias, meaning]) => [alias, { totalCount: counts[meaning ?? "ALL"] ?? 0 }])
+          );
+          return { ok: true, json: async () => ({ data }) };
+        }
+        const meaning = query.match(/workflowMeaning: (\w+)/)?.[1] ?? "ALL";
+        const nodes = pages[meaning]?.[variables.page - 1] ?? [];
+        return { ok: true, json: async () => ({ data: { features: { nodes, isLastPage: true } } }) };
+      });
+    }
+
+    it("asks Aha only for incomplete meanings, fetching exactly the pages each count needs", async () => {
+      mockAha(
+        { NOT_STARTED: 501, IN_PROGRESS: 1, WONT_DO: 0, ALREADY_EXISTS: 0 },
+        {
+          NOT_STARTED: [[node("a", "NOT_STARTED")], [node("b", "NOT_STARTED", 3)]],
+          IN_PROGRESS: [[node("c", "IN_PROGRESS")]],
+        }
+      );
+
+      const result = await listFeaturesInProduct("product-123", {
+        incompleteOnly: true,
+        unestimatedOnly: true,
+      });
+
+      // 1 count request + 2 NOT_STARTED pages + 1 IN_PROGRESS page
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+      const queries = mockFetch.mock.calls.map((c) => JSON.parse(c[1].body).query as string);
+      expect(queries.some((q) => /workflowMeaning: (DONE|SHIPPED)/.test(q))).toBe(false);
+      expect(JSON.parse(mockFetch.mock.calls[1][1].body).variables.per).toBe(500);
+      // Pages must be stably ordered, or parallel pages overlap and drop features
+      expect(queries.slice(1).every((q) => q.includes("order: [{ name: createdAt, direction: ASC }"))).toBe(true);
+      expect(result.map((f) => f.id).sort()).toEqual(["a", "c"]);
+    });
+
+    it("fetches every page of the whole product without a meaning filter", async () => {
+      mockAha({ ALL: 1200 }, {
+        ALL: [[node("a", "DONE")], [node("b", "NOT_STARTED")], [node("c", "SHIPPED")]],
+      });
+
+      const result = await listFeaturesInProduct("product-123");
+
+      // 1 count request + ceil(1200 / 500) = 3 pages, no cap at 4000 features
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+      expect(result.map((f) => f.id)).toEqual(["a", "b", "c"]);
+    });
+
+    it("makes only the count request for an empty product", async () => {
+      mockAha({ ALL: 0 }, {});
+
+      expect(await listFeaturesInProduct("product-123")).toEqual([]);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 });

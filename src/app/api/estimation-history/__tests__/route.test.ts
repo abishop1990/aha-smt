@@ -17,7 +17,7 @@ describe("GET /api/estimation-history", () => {
   });
 
   it("returns empty array initially", async () => {
-    const res = await GET();
+    const res = await GET(new NextRequest(new URL("http://localhost:3000/api/estimation-history")));
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -63,7 +63,7 @@ describe("GET /api/estimation-history", () => {
       })
     );
 
-    const res = await GET();
+    const res = await GET(new NextRequest(new URL("http://localhost:3000/api/estimation-history")));
     const data = await res.json();
 
     expect(data.history).toHaveLength(2);
@@ -92,7 +92,7 @@ describe("GET /api/estimation-history", () => {
       );
     }
 
-    const res = await GET();
+    const res = await GET(new NextRequest(new URL("http://localhost:3000/api/estimation-history")));
     const data = await res.json();
 
     expect(data.history).toHaveLength(100);
@@ -101,7 +101,7 @@ describe("GET /api/estimation-history", () => {
   it("handles database errors", async () => {
     testDb.sqlite.close();
 
-    const res = await GET();
+    const res = await GET(new NextRequest(new URL("http://localhost:3000/api/estimation-history")));
 
     expect(res.status).toBe(500);
     const data = await res.json();
@@ -168,5 +168,46 @@ describe("POST /api/estimation-history", () => {
 
     expect(res.status).toBe(201);
     expect(data.estimatedByUserId).toBeNull();
+  });
+});
+
+describe("GET /api/estimation-history criteria filter", () => {
+  beforeEach(() => {
+    testDb = createTestDb();
+    vi.clearAllMocks();
+  });
+
+  async function seed(scope: string, complexity: string, unknowns: string, finalPoints: number) {
+    await POST(
+      new NextRequest(new URL("http://localhost:3000/api/estimation-history"), {
+        method: "POST",
+        body: JSON.stringify({
+          featureId: `F-${scope}${complexity}${unknowns}${finalPoints}`,
+          featureRefNum: "F-1",
+          featureName: "F",
+          scope,
+          complexity,
+          unknowns,
+          suggestedPoints: 5,
+          finalPoints,
+        }),
+      })
+    );
+  }
+
+  it("returns only entries matching all three criteria", async () => {
+    await seed("M", "M", "S", 5);
+    await seed("M", "M", "S", 3);
+    await seed("M", "L", "S", 8);
+
+    const res = await GET(
+      new NextRequest(
+        new URL("http://localhost:3000/api/estimation-history?scope=M&complexity=M&unknowns=S")
+      )
+    );
+    const data = await res.json();
+
+    expect(data.history).toHaveLength(2);
+    expect(data.history.map((h: { finalPoints: number }) => h.finalPoints).sort()).toEqual([3, 5]);
   });
 });

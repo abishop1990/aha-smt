@@ -9,8 +9,8 @@ Scrum masters need a small, fast set of tools — not the full product managemen
 ## Features
 
 - **Backlog Grooming** — View and filter unestimated features by release, assignee, and tags
-- **Three-Criteria Estimation** — Score features across Scope, Complexity, and Unknowns with a suggested point value. Writes scores back to Aha. Keyboard shortcuts for fast flow.
-- **Sprint Planning** — Per-member capacity vs allocation with days-off tracking. Visual capacity bars showing over/under-commitment. Supports both Aha iterations and releases.
+- **Three-Criteria Estimation** — Score features across Scope, Complexity, and Unknowns with a suggested point value. Writes scores back to Aha. Keyboard shortcuts for fast flow Shows the team's votes from Aha's planning-poker extension, how you sized past features with the same ratings, and estimated features in the same epic.
+- **Sprint Planning** — Per-member capacity vs allocation with days-off tracking. Visual capacity bars showing over/under-commitment. Supports both Aha iterations and releases For iterations, capacity comes from the Aha team's per-member story points.
 - **Standup Tracking** — Daily standup entries with blocker aging (amber >2d, red >5d) and action item tracking
 - **Sprint Metrics** — Capture sprint snapshots, track velocity over time, compare sprints side-by-side, and view per-member performance
 - **Org Configuration** — Externalized config for point source priority, estimation scale, sprint mode, workflow statuses, and the estimation matrix. Customize per org without forking.

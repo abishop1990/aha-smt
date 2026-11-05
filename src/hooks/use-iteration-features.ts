@@ -1,11 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { AhaFeature } from "@/lib/aha-types";
+import type { AhaFeature, AhaIteration, IterationMemberCapacity } from "@/lib/aha-types";
 
 interface IterationFeaturesResponse {
   features: AhaFeature[];
   total: number;
+  iteration: AhaIteration;
+  teamCapacity: IterationMemberCapacity[];
 }
 
 export function useIterationFeatures(
