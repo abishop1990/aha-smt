@@ -260,7 +260,7 @@ The Aha! APIs are the primary bottleneck for responsiveness. We measured product
 | Tiered cache TTLs (teams 10min, iterations 2min, features 1min) | Match cache duration to data volatility |
 | Request deduplication | Concurrent identical GETs share one in-flight request |
 | Optimistic UI updates | Score changes, standups, days-off appear instantly |
-| Hover prefetch + cache warming | Data ready before user clicks |
+| Hover prefetch | Data ready before user clicks |
 | Server-side pagination | Only fetch 200 features at a time for UI |
 
 ### Running benchmarks

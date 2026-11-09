@@ -12,13 +12,14 @@ import { useConfig } from "@/hooks/use-config";
 
 export default function BacklogPage() {
   const { data: config } = useConfig();
-  const filterType = config?.backlog.filterType ?? "release";
+  // Undefined until config loads, so no mode's data is fetched on a guess.
+  const filterType = config?.backlog.filterType;
   const teamProductId = config?.backlog.teamProductId ?? null;
   const configTagFilter = config?.backlog.tagFilter ?? null;
   const epicId = config?.backlog.epicId ?? null;
 
   // Release mode state
-  const { data: releasesData } = useReleases();
+  const { data: releasesData } = useReleases(undefined, { enabled: filterType === "release" });
   const [releaseId, setReleaseId] = useState<string | null>(null);
 
   // Team location mode state
@@ -79,6 +80,7 @@ export default function BacklogPage() {
     filterType === "epic" ? epicFeatures.data?.features :
     releaseFeatures.data?.features;
   const isLoading =
+    !config ? true :
     filterType === "team_location" ? productFeatures.isLoading :
     filterType === "tag" ? tagFeatures.isLoading :
     filterType === "epic" ? epicFeatures.isLoading :
@@ -92,21 +94,17 @@ export default function BacklogPage() {
       </div>
 
       {filterType === "team_location" ? (
-        <div className="space-y-3">
-          {/* Location selector */}
+        <div className="flex flex-wrap items-center gap-3">
           {teamLocations && teamLocations.length > 0 && (
-            <div className="flex items-center gap-3">
-              <label
-                htmlFor="location-select"
-                className="text-sm font-medium text-text-primary"
-              >
-                Location:
+            <>
+              <label htmlFor="location-select" className="sr-only">
+                Location
               </label>
               <select
                 id="location-select"
                 value={selectedTeamLocation ?? ""}
                 onChange={(e) => setSelectedTeamLocation(e.target.value)}
-                className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                className="h-9 w-[240px] px-3 bg-surface border border-border rounded-md text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {teamLocations.map((location) => (
                   <option key={location} value={location}>
@@ -114,13 +112,10 @@ export default function BacklogPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </>
           )}
 
-          {/* Assignee / tag filters (no release selector in this mode) */}
           <BacklogFilters
-            releaseId={null}
-            onReleaseChange={() => {}}
             assigneeFilter={assigneeFilter}
             onAssigneeChange={setAssigneeFilter}
             tagFilter={tagFilter}
@@ -130,14 +125,12 @@ export default function BacklogPage() {
       ) : filterType === "tag" || filterType === "epic" ? (
         /* Tag/epic modes: filter is config-driven, no release selector needed */
         <BacklogFilters
-          releaseId={null}
-          onReleaseChange={() => {}}
           assigneeFilter={assigneeFilter}
           onAssigneeChange={setAssigneeFilter}
           tagFilter={tagFilter}
           onTagChange={setTagFilter}
         />
-      ) : (
+      ) : filterType === "release" ? (
         <BacklogFilters
           releaseId={effectiveReleaseId}
           onReleaseChange={setReleaseId}
@@ -146,7 +139,7 @@ export default function BacklogPage() {
           tagFilter={tagFilter}
           onTagChange={setTagFilter}
         />
-      )}
+      ) : null}
 
       <BacklogTable
         features={features}

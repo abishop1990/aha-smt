@@ -8,7 +8,7 @@ interface ReleasesResponse {
   productId: string;
 }
 
-export function useReleases(productId?: string) {
+export function useReleases(productId?: string, options?: { enabled?: boolean }) {
   return useQuery<ReleasesResponse>({
     queryKey: ["releases", productId],
     queryFn: async () => {
@@ -18,6 +18,7 @@ export function useReleases(productId?: string) {
       if (!res.ok) throw new Error("Failed to fetch releases");
       return res.json();
     },
+    enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes - releases rarely change
   });
 }

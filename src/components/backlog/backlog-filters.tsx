@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/select";
 
 interface BacklogFiltersProps {
-  releaseId: string | null;
-  onReleaseChange: (id: string) => void;
+  /** Omit both to hide the release picker (backlog modes that aren't release-based). */
+  releaseId?: string | null;
+  onReleaseChange?: (id: string) => void;
   assigneeFilter: string;
   onAssigneeChange: (v: string) => void;
   tagFilter: string;
@@ -28,26 +29,11 @@ export function BacklogFilters({
   tagFilter,
   onTagChange,
 }: BacklogFiltersProps) {
-  const { data, isLoading } = useReleases();
-  const releases = data?.releases ?? [];
-
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Select
-        value={releaseId ?? ""}
-        onValueChange={onReleaseChange}
-      >
-        <SelectTrigger className="w-[240px]">
-          <SelectValue placeholder={isLoading ? "Loading releases..." : "Select release"} />
-        </SelectTrigger>
-        <SelectContent>
-          {releases.map((release) => (
-            <SelectItem key={release.id} value={release.id}>
-              {release.reference_num} - {release.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {onReleaseChange && (
+        <ReleaseSelect releaseId={releaseId ?? null} onReleaseChange={onReleaseChange} />
+      )}
 
       <Input
         placeholder="Filter by assignee..."
@@ -76,5 +62,31 @@ export function BacklogFilters({
         </Button>
       )}
     </div>
+  );
+}
+
+function ReleaseSelect({
+  releaseId,
+  onReleaseChange,
+}: {
+  releaseId: string | null;
+  onReleaseChange: (id: string) => void;
+}) {
+  const { data, isLoading } = useReleases();
+  const releases = data?.releases ?? [];
+
+  return (
+    <Select value={releaseId ?? ""} onValueChange={onReleaseChange}>
+      <SelectTrigger className="w-[240px]">
+        <SelectValue placeholder={isLoading ? "Loading releases..." : "Select release"} />
+      </SelectTrigger>
+      <SelectContent>
+        {releases.map((release) => (
+          <SelectItem key={release.id} value={release.id}>
+            {release.reference_num} - {release.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

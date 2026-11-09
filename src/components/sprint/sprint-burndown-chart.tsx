@@ -142,6 +142,7 @@ export function SprintBurndownChart({ releaseId, startDate, endDate }: SprintBur
                 wrapperStyle={{ fontSize: "12px", color: "var(--color-text-secondary)" }}
               />
               <Line
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="ideal"
                 name="Ideal"
@@ -152,6 +153,7 @@ export function SprintBurndownChart({ releaseId, startDate, endDate }: SprintBur
                 connectNulls={false}
               />
               <Line
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="actual"
                 name="Actual"

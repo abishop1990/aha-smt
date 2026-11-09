@@ -1,7 +1,6 @@
 "use client";
 
 import { useSprintMetrics } from "@/hooks/use-sprint-metrics";
-import { VelocityChart } from "@/components/metrics/velocity-chart";
 import { MetricSummaryCards } from "@/components/metrics/metric-summary-cards";
 import { MemberPerformanceTable } from "@/components/metrics/member-performance-table";
 import { SprintComparisonCard } from "@/components/metrics/sprint-comparison-card";
@@ -10,7 +9,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { BarChart3 } from "lucide-react";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+
+// recharts is most of this page's JavaScript; load it after the numbers render.
+const VelocityChart = dynamic(
+  () => import("@/components/metrics/velocity-chart").then((m) => m.VelocityChart),
+  { ssr: false, loading: () => <Skeleton className="h-[380px] rounded-lg" /> }
+);
 
 function MetricsPageContent() {
   const [sourceType, setSourceType] = useState<"iteration" | "release">("iteration");
