@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { estimationHistory } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const db = getDb();
+    const params = request.nextUrl.searchParams;
+    const scope = params.get("scope");
+    const complexity = params.get("complexity");
+    const unknowns = params.get("unknowns");
+
+    const conditions = [
+      scope ? eq(estimationHistory.scope, scope) : undefined,
+      complexity ? eq(estimationHistory.complexity, complexity) : undefined,
+      unknowns ? eq(estimationHistory.unknowns, unknowns) : undefined,
+    ].filter((c) => c !== undefined);
+
     const history = await db
       .select()
       .from(estimationHistory)
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(estimationHistory.createdAt))
       .limit(100);
 

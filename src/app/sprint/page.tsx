@@ -13,6 +13,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Zap, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatPoints } from "@/lib/points";
 import { useConfig } from "@/hooks/use-config";
 import type { AhaIteration } from "@/lib/aha-types";
 
@@ -135,9 +136,9 @@ function SprintListPageContent() {
                     <div className="flex items-center gap-4 text-sm text-text-secondary">
                       <span className="font-mono text-xs">{iteration.reference_num}</span>
                       {getIterationStatusBadge(iteration.status)}
-                      {typeof iteration.feature_count === "number" && (
+                      {typeof iteration.planned_points === "number" && (
                         <span className="text-text-muted">
-                          {iteration.feature_count} feature{iteration.feature_count !== 1 ? "s" : ""}
+                          {formatPoints(iteration.planned_points)} pts planned
                         </span>
                       )}
                     </div>

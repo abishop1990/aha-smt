@@ -17,13 +17,14 @@ interface ProductFeaturesResponse {
  */
 export function useProductFeatures(
   productId: string | null,
-  options?: { unestimatedOnly?: boolean }
+  options?: { unestimatedOnly?: boolean; incompleteOnly?: boolean }
 ) {
   return useQuery<ProductFeaturesResponse>({
-    queryKey: ["product-features", productId, options?.unestimatedOnly],
+    queryKey: ["product-features", productId, options?.unestimatedOnly, options?.incompleteOnly],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (options?.unestimatedOnly) params.set("unestimated", "true");
+      if (options?.incompleteOnly) params.set("incomplete", "true");
       const res = await fetch(`/api/aha/products/${productId}/features?${params}`);
       if (!res.ok) throw new Error("Failed to fetch product features");
       return res.json();

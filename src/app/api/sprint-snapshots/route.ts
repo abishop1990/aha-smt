@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sprintSnapshots } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
+import { listFeaturesInRelease, getRelease, getIterationDetail } from "@/lib/aha-client";
 import { getPoints } from "@/lib/points";
 import { getEnv } from "@/lib/env";
 
@@ -58,16 +58,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const [iteration, iterationFeatures] = await Promise.all([
-        getIteration(teamProductId, iterationRef),
-        listFeaturesInIteration(teamProductId, iterationRef),
-      ]);
+      const detail = await getIterationDetail(iterationRef);
 
-      if (!iteration) {
+      if (!detail) {
         return NextResponse.json({ error: "Iteration not found" }, { status: 404 });
       }
 
-      features = iterationFeatures;
+      const { iteration } = detail;
+      features = detail.features;
       sourceType = "iteration";
       pointSource = primarySource;
       snapshotReleaseId = iteration.id;

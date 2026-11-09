@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listFeaturesInIteration } from "@/lib/aha-client";
+import { getIterationDetail } from "@/lib/aha-client";
+import { isUnestimated } from "@/lib/points";
 import { getEnv } from "@/lib/env";
 
 export async function GET(
@@ -21,11 +22,19 @@ export async function GET(
     const { searchParams } = request.nextUrl;
     const unestimatedOnly = searchParams.get("unestimated") === "true";
 
-    const features = await listFeaturesInIteration(teamProductId, ref, { unestimatedOnly });
+    // One Aha request returns the iteration, its features and team capacity
+    const detail = await getIterationDetail(ref);
+    if (!detail) {
+      return NextResponse.json({ error: "Iteration not found" }, { status: 404 });
+    }
+
+    const features = unestimatedOnly ? detail.features.filter(isUnestimated) : detail.features;
 
     return NextResponse.json({
       features,
       total: features.length,
+      iteration: detail.iteration,
+      teamCapacity: detail.teamCapacity,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch features";

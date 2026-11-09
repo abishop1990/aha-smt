@@ -14,8 +14,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/aha-client", () => ({
   listFeaturesInRelease: vi.fn(),
   getRelease: vi.fn(),
-  listFeaturesInIteration: vi.fn(),
-  getIteration: vi.fn(),
+  getIterationDetail: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -82,7 +81,7 @@ vi.mock("@/lib/config.server", () => {
 });
 
 import { GET, POST } from "../route";
-import { listFeaturesInRelease, getRelease, listFeaturesInIteration, getIteration } from "@/lib/aha-client";
+import { listFeaturesInRelease, getRelease, getIterationDetail } from "@/lib/aha-client";
 import { getEnv } from "@/lib/env";
 
 describe("GET /api/sprint-snapshots", () => {
@@ -324,14 +323,17 @@ describe("POST /api/sprint-snapshots", () => {
       },
     ];
 
-    (getIteration as Mock).mockResolvedValue({
-      id: "iter-1",
-      reference_num: "ITER-1",
-      name: "Iteration 1",
-      start_date: "2024-01-08",
-      end_date: "2024-01-19",
+    (getIterationDetail as Mock).mockResolvedValue({
+      iteration: {
+        id: "iter-1",
+        reference_num: "ITER-1",
+        name: "Iteration 1",
+        start_date: "2024-01-08",
+        end_date: "2024-01-19",
+      },
+      features: mockFeatures,
+      teamCapacity: [],
     });
-    (listFeaturesInIteration as Mock).mockResolvedValue(mockFeatures);
 
     const req = new NextRequest(new URL("http://localhost:3000/api/sprint-snapshots"), {
       method: "POST",
@@ -351,13 +353,12 @@ describe("POST /api/sprint-snapshots", () => {
     expect(data.totalPointsCompleted).toBe(5); // Only f1 is done
 
     // Verify aha-client was called with correct params
-    expect(getIteration).toHaveBeenCalledWith("team-1", "ITER-1");
-    expect(listFeaturesInIteration).toHaveBeenCalledWith("team-1", "ITER-1");
+    expect(getIterationDetail).toHaveBeenCalledTimes(1);
+    expect(getIterationDetail).toHaveBeenCalledWith("ITER-1");
   });
 
   it("returns 404 when iteration not found", async () => {
-    (getIteration as Mock).mockResolvedValue(undefined);
-    (listFeaturesInIteration as Mock).mockResolvedValue([]);
+    (getIterationDetail as Mock).mockResolvedValue(undefined);
 
     const req = new NextRequest(new URL("http://localhost:3000/api/sprint-snapshots"), {
       method: "POST",

@@ -199,4 +199,83 @@ describe("calculateMemberCapacities", () => {
     expect(result["u2"].capacity).toBe(7);
     expect(result["u2"].daysOff).toBe(3);
   });
+
+  describe("with Aha iteration team capacity", () => {
+    const aha = (userId: string, storyPoints: number, hasNonWorkingDays = false) => ({
+      userId,
+      name: userId.toUpperCase(),
+      storyPoints,
+      hasNonWorkingDays,
+    });
+
+    it("lists every Aha team member, including those with no assigned work", () => {
+      const result = calculateMemberCapacities(
+        "2024-01-08",
+        "2024-01-19",
+        [],
+        [],
+        1,
+        [aha("u1", 8), aha("u2", 5)]
+      );
+
+      expect(Object.keys(result).sort()).toEqual(["u1", "u2"]);
+      expect(result["u1"]).toMatchObject({ capacity: 8, source: "aha", daysOff: 0 });
+    });
+
+    it("scales Aha capacity by locally recorded days off", () => {
+      // 10 business days, 2 off -> 80% of 10 pts
+      const result = calculateMemberCapacities(
+        "2024-01-08",
+        "2024-01-19",
+        [],
+        [{ userId: "u1", isHoliday: false }, { userId: "u1", isHoliday: false }],
+        1,
+        [aha("u1", 10)]
+      );
+
+      expect(result["u1"].capacity).toBe(8);
+      expect(result["u1"].daysOff).toBe(2);
+    });
+
+    it("does not double-count days off Aha already tracks", () => {
+      const result = calculateMemberCapacities(
+        "2024-01-08",
+        "2024-01-19",
+        [],
+        [{ userId: "u1", isHoliday: false }, { userId: null, isHoliday: true }],
+        1,
+        [aha("u1", 10, true)]
+      );
+
+      expect(result["u1"].capacity).toBe(10);
+      expect(result["u1"].daysOff).toBe(0);
+    });
+
+    it("falls back to points-per-day for assignees outside the Aha team", () => {
+      const result = calculateMemberCapacities(
+        "2024-01-08",
+        "2024-01-19",
+        [makeFeature("u1", "Alice"), makeFeature("u9", "Contractor")],
+        [],
+        2,
+        [aha("u1", 7)]
+      );
+
+      expect(result["u1"]).toMatchObject({ capacity: 7, source: "aha" });
+      expect(result["u9"]).toMatchObject({ capacity: 20, source: "local" });
+    });
+
+    it("rounds fractional Aha capacity to two decimals", () => {
+      const result = calculateMemberCapacities(
+        "2024-01-08",
+        "2024-01-19",
+        [],
+        [],
+        1,
+        [aha("u1", 6.333333333333333)]
+      );
+
+      expect(result["u1"].capacity).toBe(6.33);
+    });
+  });
 });

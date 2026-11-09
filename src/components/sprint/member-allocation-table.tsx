@@ -12,6 +12,7 @@ interface MemberCapacity {
   capacity: number;
   pointsPerDay: number;
   daysOff: number;
+  source?: "aha" | "local";
 }
 
 interface MemberAllocationTableProps {
@@ -25,6 +26,7 @@ interface MemberRow {
   capacity: number;
   allocated: number;
   delta: number;
+  source?: "aha" | "local";
 }
 
 export function MemberAllocationTable({
@@ -49,6 +51,7 @@ export function MemberAllocationTable({
         capacity: mc.capacity,
         allocated,
         delta: mc.capacity - allocated,
+        source: mc.source,
       };
     });
   }, [features, memberCapacities]);
@@ -65,7 +68,15 @@ export function MemberAllocationTable({
       key: "capacity",
       header: "Capacity (pts)",
       className: "text-right",
-      render: (row) => <span className="text-text-secondary">{row.capacity}</span>,
+      render: (row) => (
+        <span
+          className="text-text-secondary"
+          title={row.source === "aha" ? "From Aha iteration team capacity" : "From points per day"}
+        >
+          {formatPoints(row.capacity)}
+          {row.source === "aha" && <span className="ml-1 text-[10px] text-text-muted">Aha</span>}
+        </span>
+      ),
     },
     {
       key: "allocated",
