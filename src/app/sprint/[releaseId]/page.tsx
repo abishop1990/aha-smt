@@ -2,18 +2,24 @@
 
 import { use, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { useFeatures } from "@/hooks/use-features";
 import { useDaysOff } from "@/hooks/use-schedules";
 import { useSettings } from "@/hooks/use-settings";
 import { SprintOverview } from "@/components/sprint/sprint-overview";
 import { MemberAllocationTable } from "@/components/sprint/member-allocation-table";
 import { SprintFeatureList } from "@/components/sprint/sprint-feature-list";
-import { SprintBurndownChart } from "@/components/sprint/sprint-burndown-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { differenceInBusinessDays, parseISO, isAfter } from "date-fns";
 import { calculateMemberCapacities } from "@/lib/capacity";
+import { businessDaysRemaining } from "@/lib/date-utils";
 import type { AhaRelease } from "@/lib/aha-types";
+
+// The burndown tab is the only user of recharts here; load it when the tab opens.
+const SprintBurndownChart = dynamic(
+  () => import("@/components/sprint/sprint-burndown-chart").then((m) => m.SprintBurndownChart),
+  { ssr: false, loading: () => <Skeleton className="h-[380px] rounded-lg" /> }
+);
 
 export default function SprintDetailPage({
   params,
@@ -47,13 +53,7 @@ export default function SprintDetailPage({
       : undefined
   );
 
-  const daysRemaining = useMemo(() => {
-    if (!endDate) return 0;
-    const end = parseISO(endDate);
-    const now = new Date();
-    if (isAfter(now, end)) return 0;
-    return differenceInBusinessDays(end, now);
-  }, [endDate]);
+  const daysRemaining = useMemo(() => businessDaysRemaining(endDate), [endDate]);
 
   const memberCapacities = useMemo(
     () =>

@@ -72,6 +72,7 @@ export function VelocityChart({ snapshots }: VelocityChartProps) {
                 formatter={(value: number) => formatPoints(value)}
               />
               <Line
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="planned"
                 name="Planned"
@@ -81,6 +82,7 @@ export function VelocityChart({ snapshots }: VelocityChartProps) {
                 activeDot={{ r: 6 }}
               />
               <Line
+                isAnimationActive={false}
                 type="monotone"
                 dataKey="completed"
                 name="Completed"

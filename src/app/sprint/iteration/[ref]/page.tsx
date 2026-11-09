@@ -9,8 +9,8 @@ import { MemberAllocationTable } from "@/components/sprint/member-allocation-tab
 import { SprintFeatureList } from "@/components/sprint/sprint-feature-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { differenceInBusinessDays, parseISO, isAfter } from "date-fns";
 import { calculateMemberCapacities } from "@/lib/capacity";
+import { businessDaysRemaining } from "@/lib/date-utils";
 
 export default function IterationDetailPage({
   params,
@@ -35,13 +35,7 @@ export default function IterationDetailPage({
       : undefined
   );
 
-  const daysRemaining = useMemo(() => {
-    if (!endDate) return 0;
-    const end = parseISO(endDate);
-    const now = new Date();
-    if (isAfter(now, end)) return 0;
-    return differenceInBusinessDays(end, now);
-  }, [endDate]);
+  const daysRemaining = useMemo(() => businessDaysRemaining(endDate), [endDate]);
 
   const memberCapacities = useMemo(
     () =>

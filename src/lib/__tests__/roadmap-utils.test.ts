@@ -155,7 +155,7 @@ describe("partitionItems", () => {
       makeItem({ id: "b", startDate: "2026-03-01", endDate: "2026-06-01" }),
       makeItem({ id: "a", startDate: "2026-01-01", endDate: "2026-04-01" }),
     ];
-    const { datable } = partitionItems(items);
+    const { datable } = partitionItems(items, { showPast: true });
     expect(datable[0].id).toBe("a");
     expect(datable[1].id).toBe("b");
   });

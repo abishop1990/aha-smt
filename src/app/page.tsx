@@ -1,249 +1,155 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useReleases } from "@/hooks/use-releases";
 import { useIterations } from "@/hooks/use-iterations";
 import { useFeatures } from "@/hooks/use-features";
 import { useIterationFeatures } from "@/hooks/use-iteration-features";
-import { useSprintSnapshots } from "@/hooks/use-sprint-snapshots";
 import { useConfig } from "@/hooks/use-config";
-import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 import { getPoints, formatPoints, isUnestimated } from "@/lib/points";
-import {
-  ListTodo,
-  Calculator,
-  Zap,
-  Users,
-  BarChart3,
-  ArrowRight,
-} from "lucide-react";
+import { businessDaysRemaining } from "@/lib/date-utils";
 
 export default function DashboardPage() {
   const { data: config } = useConfig();
-  const sprintMode = config?.sprints.mode ?? "both";
+  const sprintMode = config?.sprints.mode;
 
-  const { data: releasesData, isLoading: releasesLoading } = useReleases();
   const { data: iterationsData, isLoading: iterationsLoading } = useIterations();
-
-  const activeRelease =
-    sprintMode !== "iterations"
-      ? (releasesData?.releases?.find(
-          (r) => !r.parking_lot && r.status === "in_progress"
-        ) ?? null)
-      : null;
-
   const activeIteration =
-    sprintMode !== "releases"
+    sprintMode && sprintMode !== "releases"
       ? (iterationsData?.iterations?.find((i) => i.status === "started") ?? null)
       : null;
 
-  // Prefer iteration when both are available; fall back to release
-  const isIterationActive = sprintMode !== "releases" && !!activeIteration;
-  const activeSprint = isIterationActive ? activeIteration : activeRelease;
+  // Releases are only the fallback when no iteration is running, so don't fetch them otherwise.
+  const needReleases =
+    sprintMode === "releases" ||
+    (sprintMode === "both" && !iterationsLoading && !activeIteration);
+  const { data: releasesData, isLoading: releasesLoading } = useReleases(undefined, {
+    enabled: needReleases,
+  });
+  const activeRelease = needReleases
+    ? (releasesData?.releases?.find((r) => !r.parking_lot && r.status === "in_progress") ?? null)
+    : null;
 
   const { data: releaseFeatures, isLoading: relFeaturesLoading } = useFeatures(
-    !isIterationActive ? (activeRelease?.id ?? null) : null
+    activeIteration ? null : (activeRelease?.id ?? null)
   );
   const { data: iterFeatures, isLoading: iterFeaturesLoading } = useIterationFeatures(
-    isIterationActive ? (activeIteration?.reference_num ?? null) : null
+    activeIteration?.reference_num ?? null
   );
 
-  const { data: snapshotsData } = useSprintSnapshots();
+  const sprint = activeIteration
+    ? {
+        name: activeIteration.name,
+        endDate: activeIteration.end_date,
+        href: `/sprint/iteration/${activeIteration.reference_num}`,
+        features: iterFeatures?.features,
+      }
+    : activeRelease
+      ? {
+          name: activeRelease.name,
+          endDate: activeRelease.release_date ?? null,
+          href: `/sprint/${activeRelease.id}`,
+          features: releaseFeatures?.features,
+        }
+      : null;
 
-  const features = isIterationActive
-    ? (iterFeatures?.features ?? [])
-    : (releaseFeatures?.features ?? []);
-  const unestimated = features.filter(isUnestimated);
+  const findingSprint =
+    !config || iterationsLoading || (needReleases && releasesLoading);
+  const featuresLoading =
+    !!sprint && (activeIteration ? iterFeaturesLoading : relFeaturesLoading);
+
+  const features = sprint?.features ?? [];
+  const unestimated = features.filter(isUnestimated).length;
   const totalPoints = features.reduce((sum, f) => sum + getPoints(f), 0);
-  const completedFeatures = features.filter((f) => f.workflow_status?.complete);
-  const snapshots = snapshotsData?.snapshots ?? [];
-  const avgVelocity =
-    snapshots.length > 0
-      ? Math.round(
-          snapshots.reduce((s, snap) => s + snap.totalPointsCompleted, 0) /
-            snapshots.length
-        )
-      : 0;
-
-  const dataLoading = releasesLoading || iterationsLoading;
-  const featuresLoading = isIterationActive ? iterFeaturesLoading : relFeaturesLoading;
-  const isLoading = dataLoading || (!!activeSprint && featuresLoading);
-  const sprintDataLoaded = !dataLoading && releasesData !== undefined;
+  const completed = features.filter((f) => f.workflow_status?.complete).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
-        <p className="text-text-secondary mt-1">
-          {dataLoading
-            ? "Loading..."
-            : activeSprint
-              ? `Current sprint: ${activeSprint.name}`
-              : "No sprint in progress"}
-        </p>
+        <div className="text-text-secondary mt-1">
+          {findingSprint ? (
+            <Skeleton className="h-5 w-48" />
+          ) : sprint ? (
+            `Current sprint: ${sprint.name}`
+          ) : (
+            "No sprint in progress"
+          )}
+        </div>
       </div>
 
-      {/* KPI Cards — only shown when a sprint is active */}
-      {(isLoading || activeSprint) && (
+      {(findingSprint || sprint) && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-text-secondary">
-                Unestimated
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{unestimated.length}</div>
-              )}
-              <p className="text-xs text-text-muted mt-1">features need points</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-text-secondary">
-                Sprint Points
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{formatPoints(totalPoints)}</div>
-              )}
-              <p className="text-xs text-text-muted mt-1">
-                across {features.length} features
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-text-secondary">
-                Completed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">
-                  {completedFeatures.length}/{features.length}
-                </div>
-              )}
-              <p className="text-xs text-text-muted mt-1">features done</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-text-secondary">
-                Avg Velocity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgVelocity}</div>
-              <p className="text-xs text-text-muted mt-1">
-                pts/sprint ({snapshots.length} sprints)
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Unestimated"
+            value={unestimated}
+            caption="features need points"
+            href="/estimate"
+            loading={findingSprint || featuresLoading}
+          />
+          <StatCard
+            title="Sprint Points"
+            value={formatPoints(totalPoints)}
+            caption={`across ${features.length} features`}
+            href={sprint?.href}
+            loading={findingSprint || featuresLoading}
+          />
+          <StatCard
+            title="Completed"
+            value={`${completed}/${features.length}`}
+            caption="features done"
+            href={sprint?.href}
+            loading={findingSprint || featuresLoading}
+          />
+          <StatCard
+            title="Days Left"
+            value={businessDaysRemaining(sprint?.endDate)}
+            caption="business days in sprint"
+            href={sprint?.href}
+            loading={findingSprint}
+          />
         </div>
       )}
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Link href="/backlog">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary-muted p-3">
-                <ListTodo className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">Backlog</h3>
-                <p className="text-sm text-text-secondary">
-                  {sprintDataLoaded && !activeSprint
-                    ? "Browse features"
-                    : `${unestimated.length} unestimated features`}
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-text-muted" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/estimate">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary-muted p-3">
-                <Calculator className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">Estimate</h3>
-                <p className="text-sm text-text-secondary">
-                  Score features with criteria model
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-text-muted" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/sprint">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary-muted p-3">
-                <Zap className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">Sprint Planning</h3>
-                <p className="text-sm text-text-secondary">
-                  Capacity & allocation
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-text-muted" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/standup">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary-muted p-3">
-                <Users className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">Standup</h3>
-                <p className="text-sm text-text-secondary">
-                  Daily updates & blockers
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-text-muted" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/metrics">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary-muted p-3">
-                <BarChart3 className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">Metrics</h3>
-                <p className="text-sm text-text-secondary">
-                  Sprint performance & velocity
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-text-muted" />
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
     </div>
   );
+}
+
+function StatCard({
+  title,
+  value,
+  caption,
+  href,
+  loading,
+}: {
+  title: string;
+  value: React.ReactNode;
+  caption: string;
+  href?: string;
+  loading: boolean;
+}) {
+  const card = (
+    <Card className={href ? "group h-full transition-colors hover:border-primary" : "h-full"}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-sm font-medium text-text-secondary">
+          {title}
+          {href && (
+            <ArrowRight className="h-4 w-4 text-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-8 w-16" />
+        ) : (
+          <div className="text-2xl font-bold">{value}</div>
+        )}
+        <p className="text-xs text-text-muted mt-1">{caption}</p>
+      </CardContent>
+    </Card>
+  );
+
+  return href ? <Link href={href}>{card}</Link> : card;
 }
